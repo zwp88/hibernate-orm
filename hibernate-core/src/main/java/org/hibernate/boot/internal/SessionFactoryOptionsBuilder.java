@@ -44,7 +44,6 @@ import org.hibernate.cache.internal.NoCachingRegionFactory;
 import org.hibernate.cache.internal.StandardTimestampsCacheFactory;
 import org.hibernate.cache.spi.RegionFactory;
 import org.hibernate.cache.spi.TimestampsCacheFactory;
-import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.config.spi.ConfigurationService;
@@ -53,7 +52,6 @@ import org.hibernate.engine.jdbc.env.spi.ExtractedDatabaseMetaData;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.id.uuid.LocalObjectUuidHelper;
 import org.hibernate.internal.BaselineSessionEventsListenerBuilder;
-import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.EmptyInterceptor;
 import org.hibernate.internal.util.NullnessHelper;
 import org.hibernate.internal.util.config.ConfigurationHelper;
@@ -80,7 +78,6 @@ import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.hibernate.resource.transaction.spi.TransactionCoordinatorBuilder;
 import org.hibernate.stat.Statistics;
 import org.hibernate.type.format.FormatMapper;
-import org.hibernate.type.format.jackson.JacksonIntegration;
 import org.hibernate.type.format.jaxb.JaxbXmlFormatMapper;
 
 import jakarta.persistence.criteria.Nulls;
@@ -88,22 +85,8 @@ import jakarta.persistence.criteria.Nulls;
 import static java.util.Collections.unmodifiableMap;
 import static org.hibernate.Timeouts.WAIT_FOREVER_MILLI;
 import static org.hibernate.cfg.AvailableSettings.*;
-import static org.hibernate.cfg.AvailableSettings.JAKARTA_LOCK_SCOPE;
-import static org.hibernate.cfg.AvailableSettings.JAKARTA_LOCK_TIMEOUT;
-import static org.hibernate.cfg.AvailableSettings.JPA_LOCK_TIMEOUT;
-import static org.hibernate.cfg.CacheSettings.JAKARTA_SHARED_CACHE_RETRIEVE_MODE;
-import static org.hibernate.cfg.CacheSettings.JAKARTA_SHARED_CACHE_STORE_MODE;
-import static org.hibernate.cfg.CacheSettings.JPA_SHARED_CACHE_RETRIEVE_MODE;
-import static org.hibernate.cfg.CacheSettings.JPA_SHARED_CACHE_STORE_MODE;
-import static org.hibernate.cfg.CacheSettings.QUERY_CACHE_LAYOUT;
 import static org.hibernate.cfg.DialectSpecificSettings.ORACLE_OSON_DISABLED;
-import static org.hibernate.cfg.PersistenceSettings.UNOWNED_ASSOCIATION_TRANSIENT_CHECK;
-import static org.hibernate.cfg.QuerySettings.DEFAULT_NULL_ORDERING;
-import static org.hibernate.cfg.QuerySettings.JSON_FUNCTIONS_ENABLED;
-import static org.hibernate.cfg.QuerySettings.PORTABLE_INTEGER_DIVISION;
-import static org.hibernate.cfg.QuerySettings.XML_FUNCTIONS_ENABLED;
 import static org.hibernate.engine.config.spi.StandardConverters.BOOLEAN;
-import static org.hibernate.internal.CoreLogging.messageLogger;
 import static org.hibernate.internal.LockOptionsHelper.applyPropertiesToLockOptions;
 import static org.hibernate.internal.log.DeprecationLogger.DEPRECATION_LOGGER;
 import static org.hibernate.internal.util.PropertiesHelper.map;
@@ -118,6 +101,7 @@ import static org.hibernate.jpa.internal.util.ConfigurationHelper.getFlushMode;
 import static org.hibernate.type.format.jackson.JacksonIntegration.getJsonJacksonFormatMapperOrNull;
 import static org.hibernate.type.format.jackson.JacksonIntegration.getOsonJacksonFormatMapperOrNull;
 import static org.hibernate.type.format.jackson.JacksonIntegration.getXMLJacksonFormatMapperOrNull;
+import static org.hibernate.type.format.jackson.JacksonIntegration.isJacksonOsonExtensionAvailable;
 import static org.hibernate.type.format.jakartajson.JakartaJsonIntegration.getJakartaJsonBFormatMapperOrNull;
 
 /**
@@ -131,7 +115,6 @@ import static org.hibernate.type.format.jakartajson.JakartaJsonIntegration.getJa
  * @author Steve Ebersole
  */
 public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
-	private static final CoreMessageLogger log = messageLogger( SessionFactoryOptionsBuilder.class );
 
 	private final String uuid = LocalObjectUuidHelper.generateLocalObjectUuid();
 	private final StandardServiceRegistry serviceRegistry;
@@ -291,35 +274,34 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 		settings.putAll( configurationService.getSettings() );
 
 		beanManagerReference = NullnessHelper.coalesceSuppliedValues(
-				() -> settings.get( AvailableSettings.JAKARTA_CDI_BEAN_MANAGER ),
+				() -> settings.get( JAKARTA_CDI_BEAN_MANAGER ),
 				() -> {
-					final Object value = settings.get( AvailableSettings.CDI_BEAN_MANAGER );
+					final Object value = settings.get( CDI_BEAN_MANAGER );
 					if ( value != null ) {
-						DEPRECATION_LOGGER.deprecatedSetting(
-								AvailableSettings.CDI_BEAN_MANAGER,
-								AvailableSettings.JAKARTA_CDI_BEAN_MANAGER
-						);
+						DEPRECATION_LOGGER.deprecatedSetting( CDI_BEAN_MANAGER,
+								JAKARTA_CDI_BEAN_MANAGER );
 					}
 					return value;
 				}
 		);
 
 		validatorFactoryReference = settings.getOrDefault(
-				AvailableSettings.JPA_VALIDATION_FACTORY,
-				settings.get( AvailableSettings.JAKARTA_VALIDATION_FACTORY )
+				JPA_VALIDATION_FACTORY,
+				settings.get( JAKARTA_VALIDATION_FACTORY )
 		);
 
-		jsonFormatMapper = determineJsonFormatMapper(
-				settings.get( AvailableSettings.JSON_FORMAT_MAPPER ),
-				!getBoolean( ORACLE_OSON_DISABLED ,settings),
+		jsonFormatMapper = jsonFormatMapper(
+				settings.get( JSON_FORMAT_MAPPER ),
+				!getBoolean( ORACLE_OSON_DISABLED, settings),
 				strategySelector
 		);
 
-		xmlFormatMapper = determineXmlFormatMapper(
-				settings.get( AvailableSettings.XML_FORMAT_MAPPER ),
+		xmlFormatMapper = xmlFormatMapper(
+				settings.get( XML_FORMAT_MAPPER ),
 				strategySelector,
 				xmlFormatMapperLegacyFormatEnabled =
-						context.getMetadataBuildingOptions().isXmlFormatMapperLegacyFormatEnabled()
+						context.getMetadataBuildingOptions()
+								.isXmlFormatMapperLegacyFormatEnabled()
 		);
 
 		sessionFactoryName = (String) settings.get( SESSION_FACTORY_NAME );
@@ -395,19 +377,19 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 		jtaTrackByThread = configurationService.getSetting( JTA_TRACK_BY_THREAD, BOOLEAN, true );
 
 		final String hqlTranslatorImplFqn =
-				extractPropertyValue( AvailableSettings.SEMANTIC_QUERY_PRODUCER, settings );
+				extractPropertyValue( SEMANTIC_QUERY_PRODUCER, settings );
 		hqlTranslator = resolveHqlTranslator( hqlTranslatorImplFqn, serviceRegistry, strategySelector );
 
 		final String sqmTranslatorFactoryImplFqn =
-				extractPropertyValue( AvailableSettings.SEMANTIC_QUERY_TRANSLATOR, settings );
+				extractPropertyValue( SEMANTIC_QUERY_TRANSLATOR, settings );
 		sqmTranslatorFactory = resolveSqmTranslator( sqmTranslatorFactoryImplFqn, strategySelector );
 
 		final String sqmMutationStrategyImplName =
-				extractPropertyValue( AvailableSettings.QUERY_MULTI_TABLE_MUTATION_STRATEGY, settings );
+				extractPropertyValue( QUERY_MULTI_TABLE_MUTATION_STRATEGY, settings );
 		sqmMultiTableMutationStrategy =
 				resolveSqmMutationStrategy( sqmMutationStrategyImplName, serviceRegistry, strategySelector );
 		final String sqmInsertStrategyImplName =
-				extractPropertyValue( AvailableSettings.QUERY_MULTI_TABLE_INSERT_STRATEGY, settings );
+				extractPropertyValue( QUERY_MULTI_TABLE_INSERT_STRATEGY, settings );
 		sqmMultiTableInsertStrategy =
 				resolveSqmInsertStrategy( sqmInsertStrategyImplName, serviceRegistry, strategySelector );
 
@@ -461,25 +443,18 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 			autoEvictCollectionCache = false;
 		}
 
-		// deprecated
+		// deprecated, delete this:
 		try {
-			schemaAutoTooling = SchemaAutoTooling.interpret( (String) settings.get( AvailableSettings.HBM2DDL_AUTO ) );
+			schemaAutoTooling = SchemaAutoTooling.interpret( (String) settings.get( HBM2DDL_AUTO ) );
 		}
 		catch (Exception e) {
-			log.warn( e.getMessage() + "  Ignoring" );
+			// ignore, since this member is deprecated and ignored
 		}
 
+		final var meta = jdbcServices.getExtractedMetaDataSupport();
+
 		// deprecated
-		final ExtractedDatabaseMetaData meta = jdbcServices.getExtractedMetaDataSupport();
-		if ( meta.doesDataDefinitionCauseTransactionCommit() ) {
-			tempTableDdlTransactionHandling =
-					meta.supportsDataDefinitionInTransaction()
-							? TempTableDdlTransactionHandling.ISOLATE_AND_TRANSACT
-							: TempTableDdlTransactionHandling.ISOLATE;
-		}
-		else {
-			tempTableDdlTransactionHandling = TempTableDdlTransactionHandling.NONE;
-		}
+		tempTableDdlTransactionHandling = getTempTableDdlTransactionHandling( meta );
 
 		jdbcBatchSize = disallowBatchUpdates( dialect, meta ) ? 0
 				: getInt( STATEMENT_BATCH_SIZE, settings, 1 );
@@ -494,7 +469,7 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 		connectionHandlingMode = interpretConnectionHandlingMode( settings, serviceRegistry );
 
 		connectionProviderDisablesAutoCommit =
-				getBoolean( AvailableSettings.CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT, settings, false );
+				getBoolean( CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT, settings, false );
 
 		commentsEnabled = getBoolean( USE_SQL_COMMENTS, settings );
 
@@ -510,11 +485,11 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 		jdbcTimeZone = getJdbcTimeZone( settings.get( JDBC_TIME_ZONE ) );
 
 		criteriaValueHandlingMode = ValueHandlingMode.interpret( settings.get( CRITERIA_VALUE_HANDLING_MODE ) );
-		criteriaCopyTreeEnabled = getBoolean( AvailableSettings.CRITERIA_COPY_TREE, settings, jpaBootstrap );
-		criteriaPlanCacheEnabled = getBoolean( AvailableSettings.CRITERIA_PLAN_CACHE_ENABLED, settings, false );
+		criteriaCopyTreeEnabled = getBoolean( CRITERIA_COPY_TREE, settings, jpaBootstrap );
+		criteriaPlanCacheEnabled = getBoolean( CRITERIA_PLAN_CACHE_ENABLED, settings, false );
 
 		nativeJdbcParametersIgnored =
-				getBoolean( AvailableSettings.NATIVE_IGNORE_JDBC_PARAMETERS, settings, false );
+				getBoolean( NATIVE_IGNORE_JDBC_PARAMETERS, settings, false );
 
 		// added the boolean parameter in case we want to define some form of "all" as discussed
 		jpaCompliance = context.getJpaCompliance();
@@ -542,10 +517,10 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 				getBoolean( UNOWNED_ASSOCIATION_TRANSIENT_CHECK, settings, isJpaBootstrap() );
 
 		passProcedureParameterNames =
-				getBoolean( AvailableSettings.QUERY_PASS_PROCEDURE_PARAMETER_NAMES, settings, false );
+				getBoolean( QUERY_PASS_PROCEDURE_PARAMETER_NAMES, settings, false );
 
 		preferJdbcDatetimeTypes =
-				getBoolean( AvailableSettings.NATIVE_PREFER_JDBC_DATETIME_TYPES, settings, false );
+				getBoolean( NATIVE_PREFER_JDBC_DATETIME_TYPES, settings, false );
 
 		defaultSessionProperties = initializeDefaultSessionProperties( configurationService );
 
@@ -555,6 +530,18 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 
 		defaultLockOptions = defaultLockOptions( defaultSessionProperties );
 		initialSessionFlushMode = defaultFlushMode( defaultSessionProperties );
+	}
+
+	@Deprecated(forRemoval = true)
+	private static TempTableDdlTransactionHandling getTempTableDdlTransactionHandling(ExtractedDatabaseMetaData meta) {
+		if ( meta.doesDataDefinitionCauseTransactionCommit() ) {
+			return meta.supportsDataDefinitionInTransaction()
+					? TempTableDdlTransactionHandling.ISOLATE_AND_TRANSACT
+					: TempTableDdlTransactionHandling.ISOLATE;
+		}
+		else {
+			return TempTableDdlTransactionHandling.NONE;
+		}
 	}
 
 	private TimeZone getJdbcTimeZone(Object jdbcTimeZoneValue) {
@@ -620,17 +607,20 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 				strategyName,
 				(SqmMultiTableMutationStrategy) null,
 				strategyClass -> {
-					Constructor<SqmMultiTableMutationStrategy> dialectConstructor = null;
-					Constructor<SqmMultiTableMutationStrategy> emptyConstructor = null;
+					Constructor<? extends SqmMultiTableMutationStrategy> dialectConstructor = null;
+					Constructor<? extends SqmMultiTableMutationStrategy> emptyConstructor = null;
 					// todo (6.0) : formalize the allowed constructor parameterizations
-					for ( Constructor<?> declaredConstructor : strategyClass.getDeclaredConstructors() ) {
-						final Class<?>[] parameterTypes = declaredConstructor.getParameterTypes();
+					for ( var declaredConstructor : strategyClass.getDeclaredConstructors() ) {
+						final var parameterTypes = declaredConstructor.getParameterTypes();
+						final var constructor =
+								(Constructor<? extends SqmMultiTableMutationStrategy>)
+										declaredConstructor;
 						if ( parameterTypes.length == 1 && parameterTypes[0] == Dialect.class ) {
-							dialectConstructor = (Constructor<SqmMultiTableMutationStrategy>) declaredConstructor;
+							dialectConstructor = constructor;
 							break;
 						}
 						else if ( parameterTypes.length == 0 ) {
-							emptyConstructor = (Constructor<SqmMultiTableMutationStrategy>) declaredConstructor;
+							emptyConstructor = constructor;
 						}
 					}
 
@@ -646,11 +636,13 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 					}
 					catch (Exception e) {
 						throw new StrategySelectionException(
-								String.format( "Could not instantiate named strategy class [%s]", strategyClass.getName() ),
+								"Could not instantiate named strategy class [" + strategyClass.getName() + "]",
 								e
 						);
 					}
-					throw new IllegalArgumentException( "Cannot instantiate the class [" + strategyClass.getName() + "] because it does not have a constructor that accepts a dialect or an empty constructor" );
+					throw new IllegalArgumentException( "Cannot instantiate the class ["
+								+ strategyClass.getName()
+								+ "] because it does not have a constructor that accepts a dialect or an empty constructor" );
 				}
 		);
 	}
@@ -669,17 +661,20 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 				strategyName,
 				(SqmMultiTableInsertStrategy) null,
 				strategyClass -> {
-					Constructor<SqmMultiTableInsertStrategy> dialectConstructor = null;
-					Constructor<SqmMultiTableInsertStrategy> emptyConstructor = null;
+					Constructor<? extends SqmMultiTableInsertStrategy> dialectConstructor = null;
+					Constructor<? extends SqmMultiTableInsertStrategy> emptyConstructor = null;
 					// todo (6.0) : formalize the allowed constructor parameterizations
-					for ( Constructor<?> declaredConstructor : strategyClass.getDeclaredConstructors() ) {
-						final Class<?>[] parameterTypes = declaredConstructor.getParameterTypes();
+					for ( var declaredConstructor : strategyClass.getDeclaredConstructors() ) {
+						final var parameterTypes = declaredConstructor.getParameterTypes();
+						final var constructor =
+								(Constructor<? extends SqmMultiTableInsertStrategy>)
+										declaredConstructor;
 						if ( parameterTypes.length == 1 && parameterTypes[0] == Dialect.class ) {
-							dialectConstructor = (Constructor<SqmMultiTableInsertStrategy>) declaredConstructor;
+							dialectConstructor = constructor;
 							break;
 						}
 						else if ( parameterTypes.length == 0 ) {
-							emptyConstructor = (Constructor<SqmMultiTableInsertStrategy>) declaredConstructor;
+							emptyConstructor = constructor;
 						}
 					}
 
@@ -695,11 +690,13 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 					}
 					catch (Exception e) {
 						throw new StrategySelectionException(
-								String.format( "Could not instantiate named strategy class [%s]", strategyClass.getName() ),
+								"Could not instantiate named strategy class [" + strategyClass.getName() + "]",
 								e
 						);
 					}
-					throw new IllegalArgumentException( "Cannot instantiate the class [" + strategyClass.getName() + "] because it does not have a constructor that accepts a dialect or an empty constructor" );
+					throw new IllegalArgumentException( "Cannot instantiate the class ["
+								+ strategyClass.getName()
+								+ "] because it does not have a constructor that accepts a dialect or an empty constructor" );
 				}
 		);
 	}
@@ -708,23 +705,15 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 			String producerName,
 			StandardServiceRegistry serviceRegistry,
 			StrategySelector strategySelector) {
-		if ( isEmpty( producerName ) ) {
-			return null;
-		}
-		else {
-			//noinspection Convert2Lambda
-			return strategySelector.resolveDefaultableStrategy(
-					HqlTranslator.class,
-					producerName,
-					new Callable<>() {
-						@Override
-						public HqlTranslator call() throws Exception {
-							return (HqlTranslator) serviceRegistry.requireService( ClassLoaderService.class )
-									.classForName( producerName ).newInstance();
-						}
-					}
-			);
-		}
+		return isEmpty( producerName )
+				? null
+				: strategySelector.<HqlTranslator>resolveDefaultableStrategy(
+						HqlTranslator.class,
+						producerName,
+						() -> (HqlTranslator)
+								serviceRegistry.requireService( ClassLoaderService.class )
+										.classForName( producerName ).newInstance()
+				);
 	}
 
 	private SqmTranslatorFactory resolveSqmTranslator(
@@ -754,8 +743,7 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 	private static Supplier<? extends Interceptor> determineStatelessInterceptor(
 			Map<String,Object> configurationSettings,
 			StrategySelector strategySelector) {
-		Object setting = configurationSettings.get( SESSION_SCOPED_INTERCEPTOR );
-
+		final Object setting = configurationSettings.get( SESSION_SCOPED_INTERCEPTOR );
 		if ( setting == null ) {
 			return null;
 		}
@@ -782,7 +770,7 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 				return clazz.newInstance();
 			}
 			catch (InstantiationException | IllegalAccessException e) {
-				throw new HibernateException( "Could not supply session-scoped SessionFactory Interceptor", e );
+				throw new org.hibernate.InstantiationException( "Could not instantiate session-scoped Interceptor", clazz, e );
 			}
 		};
 	}
@@ -798,30 +786,39 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 						.getDefaultConnectionHandlingMode();
 	}
 
-	private static FormatMapper determineJsonFormatMapper(Object setting, boolean osonExtensionEnabled, StrategySelector strategySelector) {
-		return strategySelector.resolveDefaultableStrategy(
-				FormatMapper.class,
+	private static FormatMapper jsonFormatMapper(Object setting, boolean osonExtensionEnabled, StrategySelector selector) {
+		return formatMapper(
 				setting,
-				(Callable<FormatMapper>) () -> {
+				selector,
+				() -> {
 					// Prefer the OSON Jackson FormatMapper by default if available
 					final FormatMapper jsonJacksonFormatMapper =
-							(osonExtensionEnabled && JacksonIntegration.isJacksonOsonExtensionAvailable())
+							osonExtensionEnabled && isJacksonOsonExtensionAvailable()
 									? getOsonJacksonFormatMapperOrNull()
 									: getJsonJacksonFormatMapperOrNull();
-					return jsonJacksonFormatMapper != null ? jsonJacksonFormatMapper : getJakartaJsonBFormatMapperOrNull();
+					return jsonJacksonFormatMapper != null
+							? jsonJacksonFormatMapper
+							: getJakartaJsonBFormatMapperOrNull();
 				}
 		);
 	}
 
-	private static FormatMapper determineXmlFormatMapper(Object setting, StrategySelector strategySelector, boolean legacyFormat) {
-		return strategySelector.resolveDefaultableStrategy(
-				FormatMapper.class,
+	private static FormatMapper xmlFormatMapper(Object setting, StrategySelector selector, boolean legacyFormat) {
+		return formatMapper(
 				setting,
-				(Callable<FormatMapper>) () -> {
-					final FormatMapper jacksonFormatMapper = getXMLJacksonFormatMapperOrNull( legacyFormat );
-					return jacksonFormatMapper != null ? jacksonFormatMapper : new JaxbXmlFormatMapper( legacyFormat );
+				selector,
+				() -> {
+					final FormatMapper jacksonFormatMapper =
+							getXMLJacksonFormatMapperOrNull( legacyFormat );
+					return jacksonFormatMapper != null
+							? jacksonFormatMapper
+							: new JaxbXmlFormatMapper( legacyFormat );
 				}
 		);
+	}
+
+	private static FormatMapper formatMapper(Object setting, StrategySelector selector, Callable<FormatMapper> defaultResolver) {
+		return selector.resolveDefaultableStrategy( FormatMapper.class, setting, defaultResolver );
 	}
 
 
@@ -1601,8 +1598,8 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 	}
 
 	public SessionFactoryOptions buildOptions() {
-		if ( jpaCompliance instanceof MutableJpaCompliance ) {
-			jpaCompliance = mutableJpaCompliance().immutableCopy();
+		if ( jpaCompliance instanceof MutableJpaCompliance mutableJpaCompliance ) {
+			jpaCompliance = mutableJpaCompliance.immutableCopy();
 		}
 		return this;
 	}
@@ -1692,7 +1689,7 @@ public class SessionFactoryOptionsBuilder implements SessionFactoryOptions {
 				LegacySpecHints.HINT_JAVAEE_QUERY_TIMEOUT
 		};
 
-		final Map<String, Object> configurationServiceSettings = configurationService.getSettings();
+		final var configurationServiceSettings = configurationService.getSettings();
 		for ( String key : ENTITY_MANAGER_SPECIFIC_PROPERTIES ) {
 			if ( configurationServiceSettings.containsKey( key ) ) {
 				settings.put( key, configurationServiceSettings.get( key ) );
