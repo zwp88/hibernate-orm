@@ -1576,9 +1576,14 @@ public abstract class AbstractEntityPersister
 			final EntityEntry entry,
 			final String fieldName,
 			final SharedSessionContractImplementor session) {
-		return nonLazyPropertyNames.contains( fieldName )
+		return isNonLazyPropertyName( fieldName )
 				? initLazyProperty( entity, id, entry, fieldName, session )
 				: initLazyProperties( entity, id, entry, fieldName, session );
+	}
+
+	// Hibernate Reactive uses this
+	protected boolean isNonLazyPropertyName(String fieldName) {
+		return nonLazyPropertyNames.contains( fieldName );
 	}
 
 	private Object initLazyProperties(
@@ -1741,6 +1746,7 @@ public abstract class AbstractEntityPersister
 		return fieldName.equals( lazyPropertyNames[index] );
 	}
 
+	// Used by Hibernate Reactive
 	protected boolean initializeLazyProperty(
 			final String fieldName,
 			final Object entity,
@@ -1754,7 +1760,8 @@ public abstract class AbstractEntityPersister
 		return fieldName.equals( name );
 	}
 
-	private void initializeLazyProperty(Object entity, EntityEntry entry, Object propValue, int index, Type type) {
+	// Used by Hibernate Reactive
+	protected void initializeLazyProperty(Object entity, EntityEntry entry, Object propValue, int index, Type type) {
 		setPropertyValue( entity, index, propValue );
 		final Object[] loadedState = entry.getLoadedState();
 		if ( loadedState != null ) {

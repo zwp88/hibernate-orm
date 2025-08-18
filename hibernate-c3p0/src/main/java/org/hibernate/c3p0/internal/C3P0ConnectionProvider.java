@@ -13,6 +13,7 @@ import org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl
 import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
 import org.hibernate.engine.jdbc.connections.spi.ConnectionProviderConfigurationException;
 import org.hibernate.engine.jdbc.connections.spi.DatabaseConnectionInfo;
+import org.hibernate.exception.JDBCConnectionException;
 import org.hibernate.internal.log.ConnectionInfoLogger;
 import org.hibernate.service.UnknownUnwrapTypeException;
 import org.hibernate.service.spi.Configurable;
@@ -43,8 +44,13 @@ import static org.hibernate.engine.jdbc.connections.internal.ConnectionProviderI
 import static org.hibernate.engine.jdbc.connections.internal.ConnectionProviderInitiator.extractSetting;
 import static org.hibernate.engine.jdbc.connections.internal.ConnectionProviderInitiator.getConnectionProperties;
 import static org.hibernate.engine.jdbc.connections.internal.ConnectionProviderInitiator.toIsolationNiceName;
+import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.getCatalog;
+import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.getDriverName;
 import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.getFetchSize;
 import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.getIsolation;
+import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.getSchema;
+import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.hasCatalog;
+import static org.hibernate.engine.jdbc.connections.internal.DatabaseConnectionInfoImpl.hasSchema;
 import static org.hibernate.internal.util.config.ConfigurationHelper.getBoolean;
 import static org.hibernate.internal.util.config.ConfigurationHelper.getInteger;
 
@@ -109,19 +115,17 @@ public class C3P0ConnectionProvider
 
 	@Override
 	public boolean isUnwrappableAs(Class<?> unwrapType) {
-		return ConnectionProvider.class.equals( unwrapType )
-			|| C3P0ConnectionProvider.class.isAssignableFrom( unwrapType )
-			|| DataSource.class.isAssignableFrom( unwrapType );
+		return unwrapType.isAssignableFrom( C3P0ConnectionProvider.class )
+			|| unwrapType.isAssignableFrom( DataSource.class );
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
 	public <T> T unwrap(Class<T> unwrapType) {
-		if ( ConnectionProvider.class.equals( unwrapType )
-				|| C3P0ConnectionProvider.class.isAssignableFrom( unwrapType ) ) {
+		if ( unwrapType.isAssignableFrom( C3P0ConnectionProvider.class ) ) {
 			return (T) this;
 		}
-		else if ( DataSource.class.isAssignableFrom( unwrapType ) ) {
+		else if ( unwrapType.isAssignableFrom( DataSource.class ) ) {
 			return (T) dataSource;
 		}
 		else {
@@ -159,23 +163,41 @@ public class C3P0ConnectionProvider
 		final var poolSettings = poolSettings( properties );
 		dataSource = createDataSource( jdbcUrl, connectionProps, poolSettings );
 
-		final Integer fetchSize = getFetchSize( dataSource );
-		if ( isolation == null ) {
-			isolation = getIsolation( dataSource );
+		try ( var connection = dataSource.getConnection() ) {
+			final Integer fetchSize = getFetchSize( connection );
+			final boolean hasSchema = hasSchema( connection );
+			final boolean hasCatalog = hasCatalog( connection );
+			final String schema = getSchema( connection );
+			final String catalog = getCatalog( connection );
+			final String driverName = getDriverName( connection );
+			if ( isolation == null ) {
+				isolation = getIsolation( connection );
+			}
+			dbInfoProducer = dialect -> new DatabaseConnectionInfoImpl(
+					C3P0ConnectionProvider.class,
+					jdbcUrl,
+					driverName,
+					dialect.getClass(),
+					dialect.getVersion(),
+					hasSchema,
+					hasCatalog,
+					schema,
+					catalog,
+					Boolean.toString( autocommit ),
+					isolation == null ? null : toIsolationNiceName( isolation ),
+					requireNonNullElse( getInteger( C3P0_STYLE_MIN_POOL_SIZE.substring( 5 ), poolSettings ),
+							DEFAULT_MIN_POOL_SIZE ),
+					requireNonNullElse( getInteger( C3P0_STYLE_MAX_POOL_SIZE.substring( 5 ), poolSettings ),
+							DEFAULT_MAX_POOL_SIZE ),
+					fetchSize
+			);
+			if ( !connection.getAutoCommit() ) {
+				connection.rollback();
+			}
 		}
-		dbInfoProducer = dialect -> new DatabaseConnectionInfoImpl(
-				C3P0ConnectionProvider.class,
-				jdbcUrl,
-				jdbcDriverClass,
-				dialect.getVersion(),
-				Boolean.toString( autocommit ),
-				isolation == null ? null : toIsolationNiceName( isolation ),
-				requireNonNullElse( getInteger( C3P0_STYLE_MIN_POOL_SIZE.substring( 5 ), poolSettings ),
-						DEFAULT_MIN_POOL_SIZE ),
-				requireNonNullElse( getInteger( C3P0_STYLE_MAX_POOL_SIZE.substring( 5 ), poolSettings ),
-						DEFAULT_MAX_POOL_SIZE ),
-				fetchSize
-		);
+		catch (SQLException e) {
+			throw new JDBCConnectionException( "Could not create connection", e );
+		}
 	}
 
 	private DataSource createDataSource(String jdbcUrl, Properties connectionProps, Map<String, Object> poolProperties) {

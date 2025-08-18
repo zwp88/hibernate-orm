@@ -7,6 +7,7 @@ package org.hibernate.orm.test.locking.options;
 import org.hibernate.EnabledFetchProfile;
 import org.hibernate.Hibernate;
 import org.hibernate.Locking;
+import org.hibernate.community.dialect.InformixDialect;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.H2Dialect;
 import org.hibernate.dialect.HSQLDialect;
@@ -60,6 +61,7 @@ public class ScopeTests {
 	// todo : generally, we do not lock collection tables - HHH-19513 plus maybe general problem with many-to-many tables
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testFind(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -69,12 +71,13 @@ public class ScopeTests {
 			assertThat( Hibernate.isInitialized( theTalisman ) ).isTrue();
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testFindWithExtended(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -85,9 +88,9 @@ public class ScopeTests {
 			assertThat( Hibernate.isInitialized( theTalisman ) ).isTrue();
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
 			// For strict compliance, EXTENDED here should lock `book_genres` but we do not
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
@@ -103,14 +106,15 @@ public class ScopeTests {
 			// these 2 assertions would depend a bit on the approach and/or dialect
 //			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 //			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), Helper.Table.BOOK_GENRES );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", true );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), true );
 		} );
 	}
 
 	@Test
 	@SkipForDialect(dialectClass = HSQLDialect.class, reason = "See https://sourceforge.net/p/hsqldb/bugs/1734/")
 	@SkipForDialect(dialectClass = H2Dialect.class, reason = "H2 seems to not extend locks across joins")
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "Cursor must be on simple SELECT for FOR UPDATE")
 	void testFindWithExtendedAndFetch(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -131,8 +135,8 @@ public class ScopeTests {
 				assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS, BOOK_GENRES );
 
-				TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
-				TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", true );
+				TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
+				TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), true );
 			}
 			else {
 				// should be 3, but follow-on locking is not locking collection tables...
@@ -142,12 +146,13 @@ public class ScopeTests {
 
 				// todo : track this down - HHH-19513
 				//Helper.checkSql( sqlCollector.getSqlQueries().get( 2 ), session.getDialect(), BOOK_GENRES );
-				//TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", true );
+				//TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), true );
 			}
 		} );
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testLock(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -161,12 +166,13 @@ public class ScopeTests {
 
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
 
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testLockWithExtended(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -178,13 +184,14 @@ public class ScopeTests {
 			session.lock( theTalisman, PESSIMISTIC_WRITE, EXTENDED );
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
 			// Again, for strict compliance, EXTENDED here should lock `book_genres` but we do not
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testRefresh(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -196,12 +203,13 @@ public class ScopeTests {
 			session.refresh( theTalisman, PESSIMISTIC_WRITE );
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
 	@Test
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "update does not block")
 	void testRefreshWithExtended(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
@@ -213,25 +221,26 @@ public class ScopeTests {
 			session.refresh( theTalisman, PESSIMISTIC_WRITE, EXTENDED );
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), BOOKS );
-			TransactionUtil.updateTable( factoryScope, BOOKS.getTableName(), "title", true );
+			TransactionUtil.assertRowLock( factoryScope, BOOKS.getTableName(), "title", "id", theTalisman.getId(), true );
 			// Again, for strict compliance, EXTENDED here should lock `book_genres` but we do not
-			TransactionUtil.updateTable( factoryScope, BOOK_GENRES.getTableName(), "genre", false );
+			TransactionUtil.assertRowLock( factoryScope, BOOK_GENRES.getTableName(), "genre", "book_fk", theTalisman.getId(), false );
 		} );
 	}
 
 	@Test
 	@SkipForDialect(dialectClass = HSQLDialect.class, reason = "See https://sourceforge.net/p/hsqldb/bugs/1734/")
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "Cursor must be on simple SELECT for FOR UPDATE")
 	void testEagerFind(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
 		factoryScope.inTransaction( (session) -> {
 			sqlCollector.clear();
-			session.find( Report.class, 2, PESSIMISTIC_WRITE );
+			final Report report = session.find( Report.class, 2, PESSIMISTIC_WRITE );
 			assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 			Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), REPORTS );
-			TransactionUtil.updateTable( factoryScope, REPORTS.getTableName(), "title", true );
-			TransactionUtil.updateTable( factoryScope, REPORT_LABELS.getTableName(), "txt", willAggressivelyLockJoinedTables( session.getDialect() ) );
-			TransactionUtil.updateTable( factoryScope, PERSONS.getTableName(), "name", willAggressivelyLockJoinedTables( session.getDialect() ) );
+			TransactionUtil.assertRowLock( factoryScope, REPORTS.getTableName(), "title", "id", report.getId(), true );
+			TransactionUtil.assertRowLock( factoryScope, REPORT_LABELS.getTableName(), "txt", "report_fk", report.getId(), willAggressivelyLockJoinedTables( session.getDialect() ) );
+			TransactionUtil.assertRowLock( factoryScope, PERSONS.getTableName(), "name", "id", report.getReporter().getId(), willAggressivelyLockJoinedTables( session.getDialect() ) );
 		} );
 	}
 
@@ -253,33 +262,35 @@ public class ScopeTests {
 	@Test
 	@SkipForDialect(dialectClass = HSQLDialect.class, reason = "See https://sourceforge.net/p/hsqldb/bugs/1734/")
 	@SkipForDialect(dialectClass = H2Dialect.class, reason = "H2 seems to not extend locks across joins")
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "Cursor must be on simple SELECT for FOR UPDATE")
 	void testEagerFindWithExtended(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
 		factoryScope.inTransaction( (session) -> {
 			sqlCollector.clear();
-			session.find( Report.class, 2, PESSIMISTIC_WRITE, EXTENDED );
+			final Report report = session.find( Report.class, 2, PESSIMISTIC_WRITE, EXTENDED );
 			if ( session.getDialect().supportsOuterJoinForUpdate() ) {
 				assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), REPORTS, REPORT_LABELS );
-				TransactionUtil.updateTable( factoryScope, REPORTS.getTableName(), "title", true );
-				TransactionUtil.updateTable( factoryScope, PERSONS.getTableName(), "name",  willAggressivelyLockJoinedTables( session.getDialect() ) );
-				TransactionUtil.updateTable( factoryScope, REPORT_LABELS.getTableName(), "txt", true );
+				TransactionUtil.assertRowLock( factoryScope, REPORTS.getTableName(), "title", "id", report.getId(), true );
+				TransactionUtil.assertRowLock( factoryScope, PERSONS.getTableName(), "name", "id", report.getReporter().getId(),
+						willAggressivelyLockJoinedTables( session.getDialect() ) );
+				TransactionUtil.assertRowLock( factoryScope, REPORT_LABELS.getTableName(), "txt", "report_fk", report.getId(), true );
 			}
 			else {
 				assertThat( sqlCollector.getSqlQueries() ).hasSize( 3 );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 1 ), session.getDialect(), REPORTS );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 2 ), session.getDialect(), PERSONS );
-				TransactionUtil.updateTable( factoryScope, REPORTS.getTableName(), "title", true );
+				TransactionUtil.assertRowLock( factoryScope, REPORTS.getTableName(), "title", "id", report.getId(), true );
 
 				// these should happen but currently do not - follow-on locking is not locking element-collection tables...
 				// todo : track this down - HHH-19513
 				//Helper.checkSql( sqlCollector.getSqlQueries().get( 2 ), session.getDialect(), REPORT_LABELS );
-				//TransactionUtil.updateTable( factoryScope, REPORT_LABELS.getTableName(), "txt", true );
+				//TransactionUtil.assertRowLock( factoryScope, REPORT_LABELS.getTableName(), "txt", "report_fk", report.getId(), true );
 
 				// this one should not happen at all.  follow-on locking is not understanding scope probably..
 				// todo : track this down - HHH-19514
-				TransactionUtil.updateTable( factoryScope, PERSONS.getTableName(), "name",  true );
+				TransactionUtil.assertRowLock( factoryScope, PERSONS.getTableName(), "name", "id", report.getReporter().getId(), true );
 			}
 		} );
 	}
@@ -287,34 +298,35 @@ public class ScopeTests {
 	@Test
 	@SkipForDialect(dialectClass = HSQLDialect.class, reason = "See https://sourceforge.net/p/hsqldb/bugs/1734/")
 	@SkipForDialect(dialectClass = H2Dialect.class, reason = "H2 seems to not extend locks across joins")
+	@SkipForDialect(dialectClass = InformixDialect.class, reason = "Cursor must be on simple SELECT for FOR UPDATE")
 	void testEagerFindWithFetchScope(SessionFactoryScope factoryScope) {
 		final SQLStatementInspector sqlCollector = factoryScope.getCollectingStatementInspector();
 
 		factoryScope.inTransaction( (session) -> {
 			sqlCollector.clear();
-			session.find( Report.class, 2, PESSIMISTIC_WRITE, Locking.Scope.INCLUDE_FETCHES );
+			final Report report = session.find( Report.class, 2, PESSIMISTIC_WRITE, Locking.Scope.INCLUDE_FETCHES );
 
 			if ( session.getDialect().supportsOuterJoinForUpdate() ) {
 				assertThat( sqlCollector.getSqlQueries() ).hasSize( 1 );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 0 ), session.getDialect(), REPORTS, REPORT_LABELS, JOINED_REPORTER );
-				TransactionUtil.updateTable( factoryScope, REPORTS.getTableName(), "title", true );
-				TransactionUtil.updateTable( factoryScope, PERSONS.getTableName(), "name",  true );
-				TransactionUtil.updateTable( factoryScope, REPORT_LABELS.getTableName(), "txt", true );
+				TransactionUtil.assertRowLock( factoryScope, REPORTS.getTableName(), "title", "id", report.getId(), true );
+				TransactionUtil.assertRowLock( factoryScope, PERSONS.getTableName(), "name", "id", report.getReporter().getId(), true );
+				TransactionUtil.assertRowLock( factoryScope, REPORT_LABELS.getTableName(), "txt", "report_fk", report.getId(), true );
 			}
 			else {
 				assertThat( sqlCollector.getSqlQueries() ).hasSize( 3 );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 1 ), session.getDialect(), REPORTS );
 				Helper.checkSql( sqlCollector.getSqlQueries().get( 2 ), session.getDialect(), PERSONS );
-				TransactionUtil.updateTable( factoryScope, REPORTS.getTableName(), "title", true );
+				TransactionUtil.assertRowLock( factoryScope, REPORTS.getTableName(), "title", "id", report.getId(), true );
 
 				// these should happen but currently do not - follow-on locking is not locking element-collection tables...
 				// todo : track this down - HHH-19513
 				//Helper.checkSql( sqlCollector.getSqlQueries().get( 2 ), session.getDialect(), REPORT_LABELS );
-				//TransactionUtil.updateTable( factoryScope, REPORT_LABELS.getTableName(), "txt", true );
+				//TransactionUtil.assertRowLock( factoryScope, REPORT_LABELS.getTableName(), "txt", "report_fk", report.getId(), true );
 
 				// this one should not happen at all.  follow-on locking is not understanding scope probably..
 				// todo : track this down - HHH-19514
-				TransactionUtil.updateTable( factoryScope, PERSONS.getTableName(), "name",  true );
+				TransactionUtil.assertRowLock( factoryScope, PERSONS.getTableName(), "name", "id", report.getReporter().getId(), true );
 			}
 		} );
 	}

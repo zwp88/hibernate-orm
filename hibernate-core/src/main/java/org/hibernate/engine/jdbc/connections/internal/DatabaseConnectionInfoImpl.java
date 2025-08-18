@@ -4,6 +4,7 @@
  */
 package org.hibernate.engine.jdbc.connections.internal;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -16,7 +17,6 @@ import org.hibernate.engine.jdbc.connections.spi.DatabaseConnectionInfo;
 import org.hibernate.internal.util.NullnessHelper;
 import org.hibernate.internal.util.config.ConfigurationHelper;
 
-import javax.sql.DataSource;
 
 import static org.hibernate.dialect.SimpleDatabaseVersion.ZERO_VERSION;
 import static org.hibernate.engine.jdbc.connections.internal.ConnectionProviderInitiator.interpretIsolation;
@@ -36,7 +36,12 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 	private final Class<?> connectionProviderClass;
 	protected final String jdbcUrl;
 	protected final String jdbcDriver;
+	private final Class<? extends Dialect> dialectClass;
 	protected final DatabaseVersion dialectVersion;
+	private final boolean hasSchema;
+	private final boolean hasCatalog;
+	protected final String schema;
+	protected final String catalog;
 	protected final String autoCommitMode;
 	protected final String isolationLevel;
 	protected final Integer poolMinSize;
@@ -47,7 +52,12 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 			Class<? extends ConnectionProvider> connectionProviderClass,
 			String jdbcUrl,
 			String jdbcDriver,
+			Class<? extends Dialect> dialectClass,
 			DatabaseVersion dialectVersion,
+			boolean hasSchema,
+			boolean hasCatalog,
+			String schema,
+			String catalog,
 			String autoCommitMode,
 			String isolationLevel,
 			Integer poolMinSize,
@@ -57,11 +67,16 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 		this.jdbcUrl = nullIfEmpty( jdbcUrl );
 		this.jdbcDriver = nullIfEmpty( jdbcDriver );
 		this.dialectVersion = dialectVersion;
+		this.hasSchema = hasSchema;
+		this.hasCatalog = hasCatalog;
+		this.schema = schema;
+		this.catalog = catalog;
 		this.autoCommitMode = nullIfEmpty( autoCommitMode );
 		this.isolationLevel = nullIfEmpty( isolationLevel );
 		this.poolMinSize = poolMinSize;
 		this.poolMaxSize = poolMaxSize;
 		this.fetchSize = fetchSize;
+		this.dialectClass = dialectClass;
 	}
 
 	public DatabaseConnectionInfoImpl(Map<String, Object> settings, Dialect dialect) {
@@ -69,7 +84,12 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 				null,
 				determineUrl( settings ),
 				determineDriver( settings ),
+				dialect.getClass(),
 				dialect.getVersion(),
+				true,
+				true,
+				null,
+				null,
 				determineAutoCommitMode( settings ),
 				determineIsolationLevel( settings ),
 				// No setting for min. pool size
@@ -80,45 +100,84 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 	}
 
 	public DatabaseConnectionInfoImpl(Dialect dialect) {
-		this( null, null, null, dialect.getVersion(), null, null, null, null, null );
+		this(
+				null,
+				null,
+				null,
+				dialect.getClass(),
+				dialect.getVersion(),
+				true,
+				true,
+				null,
+				null,
+				null,
+				null,
+				null,
+				null,
+				null
+		);
 	}
 
-	public static Integer getFetchSize(DataSource dataSource) {
-		try ( var conn = dataSource.getConnection() ) {
-			try ( var statement = conn.createStatement() ) {
-				return statement.getFetchSize();
-			}
+	public static boolean hasSchema(Connection connection) {
+		try {
+			return connection.getMetaData().supportsSchemasInDataManipulation();
+		}
+		catch ( SQLException ignored ) {
+			return true;
+		}
+	}
+
+	public static boolean hasCatalog(Connection connection) {
+		try {
+			return connection.getMetaData().supportsCatalogsInDataManipulation();
+		}
+		catch ( SQLException ignored ) {
+			return true;
+		}
+	}
+
+	public static String getSchema(Connection connection) {
+		try {
+			// method introduced in 1.7
+			return connection.getSchema();
+		}
+		catch ( SQLException|AbstractMethodError ignored ) {
+			return null;
+		}
+	}
+
+	public static String getCatalog(Connection connection) {
+		try {
+			return connection.getCatalog();
 		}
 		catch ( SQLException ignored ) {
 			return null;
 		}
 	}
 
-	public static Integer getIsolation(DataSource dataSource) {
-		try ( var conn = dataSource.getConnection() ) {
-			return conn.getTransactionIsolation();
+	public static Integer getFetchSize(Connection connection) {
+		try ( var statement = connection.createStatement() ) {
+			return statement.getFetchSize();
 		}
 		catch ( SQLException ignored ) {
 			return null;
 		}
 	}
 
-	static Integer getFetchSize(ConnectionCreator creator) {
-		try ( var conn = creator.createConnection() ) {
-			try ( var statement = conn.createStatement() ) {
-				return statement.getFetchSize();
-			}
+	public static Integer getIsolation(Connection connection) {
+		try {
+			return connection.getTransactionIsolation();
 		}
 		catch ( SQLException ignored ) {
 			return null;
 		}
 	}
 
-	static Integer getIsolation(ConnectionCreator creator) {
-		try ( var conn = creator.createConnection() ) {
-			return conn.getTransactionIsolation();
+	public static String getDriverName(Connection connection) {
+		try {
+			return connection.getMetaData().getDriverName();
 		}
-		catch ( SQLException ignored ) {
+		catch (SQLException e) {
 			return null;
 		}
 	}
@@ -164,11 +223,33 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 	}
 
 	@Override
+	public @Nullable String getSchema() {
+		return schema;
+	}
+
+	@Override
+	public @Nullable String getCatalog() {
+		return catalog;
+	}
+
+	@Override
+	public boolean hasSchema() {
+		return hasSchema;
+	}
+
+	@Override
+	public boolean hasCatalog() {
+		return hasCatalog;
+	}
+
+	@Override
 	public String toInfoString() {
 		return """
 				\tDatabase JDBC URL [%s]
 				\tDatabase driver: %s
+				\tDatabase dialect: %s
 				\tDatabase version: %s
+				\tDefault catalog/schema: %s/%s
 				\tAutocommit mode: %s
 				\tIsolation level: %s
 				\tJDBC fetch size: %s
@@ -178,10 +259,13 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 				.formatted(
 						handleEmpty( jdbcUrl ),
 						handleEmpty( jdbcDriver ),
+						handleEmpty( dialectClass ),
 						handleEmpty( dialectVersion ),
+						handleEmpty( catalog, hasCatalog ),
+						handleEmpty( schema, hasSchema ),
 						handleEmpty( autoCommitMode ),
 						handleEmpty( isolationLevel ),
-						handleEmpty( fetchSize ),
+						handleFetchSize( fetchSize ),
 						handleEmpty( connectionProviderClass ),
 						handleEmpty( poolMinSize ),
 						handleEmpty( poolMaxSize )
@@ -192,16 +276,20 @@ public class DatabaseConnectionInfoImpl implements DatabaseConnectionInfo {
 		return isNotEmpty( value ) ? value : DEFAULT;
 	}
 
+	private static String handleEmpty(String value, boolean defined) {
+		return isNotEmpty( value ) ? value : (defined ? "unknown" : "undefined");
+	}
+
 	private static String handleEmpty(DatabaseVersion dialectVersion) {
 		return dialectVersion != null ? dialectVersion.toString() : ZERO_VERSION.toString();
 	}
 
 	private static String handleEmpty(Integer value) {
-		return value != null ? ( value == 0 ? "none" : value.toString() ) : DEFAULT;
+		return value != null ? value.toString() : DEFAULT;
 	}
 
 	private static String handleFetchSize(Integer value) {
-		return value != null ? value.toString() : DEFAULT;
+		return value != null ? ( value == 0 ? "none" : value.toString() ) : DEFAULT;
 	}
 
 	private static String handleEmpty(Class<?> value) {
