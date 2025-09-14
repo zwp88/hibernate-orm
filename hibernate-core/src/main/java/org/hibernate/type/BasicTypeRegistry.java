@@ -15,11 +15,13 @@ import org.hibernate.MappingException;
 import org.hibernate.boot.spi.BootstrapContext;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
+import org.hibernate.tool.schema.extract.spi.ColumnTypeInformation;
 import org.hibernate.type.descriptor.java.BasicPluralJavaType;
 import org.hibernate.type.descriptor.java.ImmutableMutabilityPlan;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.descriptor.java.spi.JavaTypeRegistry;
 import org.hibernate.type.descriptor.jdbc.ArrayJdbcType;
+import org.hibernate.type.descriptor.jdbc.DelegatingJdbcTypeIndicators;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.descriptor.jdbc.spi.JdbcTypeRegistry;
 import org.hibernate.type.internal.BasicTypeImpl;
@@ -39,11 +41,11 @@ import static org.hibernate.internal.util.collections.CollectionHelper.isEmpty;
  * @author Steve Ebersole
  */
 public class BasicTypeRegistry implements Serializable {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( BasicTypeRegistry.class );
 
 	private final TypeConfiguration typeConfiguration;
 
-	private final Map<JdbcType, Map<JavaType<?>, BasicType<?>>> registryValues = new ConcurrentHashMap<>();
 	private boolean primed;
 
 	private final Map<String, BasicType<?>> typesByName = new ConcurrentHashMap<>();
@@ -64,13 +66,12 @@ public class BasicTypeRegistry implements Serializable {
 		return typeConfiguration.getJdbcTypeRegistry();
 	}
 
-	public <J> BasicType<J> getRegisteredType(String key) {
+	public BasicType<?> getRegisteredType(String key) {
 		var basicType = typesByName.get( key );
 		if ( basicType == null ) {
 			basicType = resolveTypeReference( key );
 		}
-		//noinspection unchecked
-		return (BasicType<J>) basicType;
+		return basicType;
 	}
 
 	private BasicType<?> resolveTypeReference(String name) {
@@ -88,18 +89,17 @@ public class BasicTypeRegistry implements Serializable {
 		return createBasicType( name, typeReference );
 	}
 
-	private BasicType<?> createBasicType(String name, BasicTypeReference<?> typeReference) {
-		final var javaType = getJavaTypeRegistry().getDescriptor( typeReference.getJavaType() );
+	private <T> BasicType<T> createBasicType(String name, BasicTypeReference<T> typeReference) {
+		final var javaType = getJavaTypeRegistry().resolveDescriptor( typeReference.getJavaType() );
 		final var jdbcType = getJdbcTypeRegistry().getDescriptor( typeReference.getSqlTypeCode() );
 		final var createdType = createBasicType( typeReference, javaType, jdbcType );
-		primeRegistryEntry( createdType );
 		typesByName.put( typeReference.getName(), createdType );
 		typesByName.put( name, createdType );
 		return createdType;
 	}
 
-	private static BasicType<?> createBasicType(
-			BasicTypeReference<?> typeReference, JavaType<Object> javaType, JdbcType jdbcType) {
+	private static <T> BasicType<T> createBasicType(
+			BasicTypeReference<T> typeReference, JavaType<T> javaType, JdbcType jdbcType) {
 		final String name = typeReference.getName();
 		if ( typeReference.getConverter() == null ) {
 			return typeReference.isForceImmutable()
@@ -116,12 +116,13 @@ public class BasicTypeRegistry implements Serializable {
 		}
 	}
 
-	public <J> BasicType<J> getRegisteredType(java.lang.reflect.Type javaType) {
+	public BasicType<?> getRegisteredType(java.lang.reflect.Type javaType) {
 		return getRegisteredType( javaType.getTypeName() );
 	}
 
 	public <J> BasicType<J> getRegisteredType(Class<J> javaType) {
-		return getRegisteredType( javaType.getTypeName() );
+		//noinspection unchecked
+		return (BasicType<J>) getRegisteredType( javaType.getTypeName() );
 	}
 
 	public BasicType<?> getRegisteredArrayType(java.lang.reflect.Type javaElementType) {
@@ -129,14 +130,15 @@ public class BasicTypeRegistry implements Serializable {
 	}
 
 	public <J> BasicType<J> resolve(BasicTypeReference<J> basicTypeReference) {
-		return getRegisteredType( basicTypeReference.getName() );
+		//noinspection unchecked
+		return (BasicType<J>) getRegisteredType( basicTypeReference.getName() );
 	}
 
 	public <J> BasicType<J> resolve(Class<J> javaType, int sqlTypeCode) {
-		return resolve( (java.lang.reflect.Type) javaType, sqlTypeCode );
+		return resolve( getJavaTypeRegistry().resolveDescriptor( javaType ), sqlTypeCode );
 	}
 
-	public <J> BasicType<J> resolve(java.lang.reflect.Type javaType, int sqlTypeCode) {
+	public BasicType<?> resolve(java.lang.reflect.Type javaType, int sqlTypeCode) {
 		return resolve( getJavaTypeRegistry().getDescriptor( javaType ), sqlTypeCode );
 	}
 
@@ -170,8 +172,48 @@ public class BasicTypeRegistry implements Serializable {
 				typeConfiguration,
 				indicators.getDialect(),
 				elementType,
-				null,
-				indicators
+				new ColumnTypeInformation() {
+					@Override
+					public Boolean getNullable() {
+						return null;
+					}
+
+					@Override
+					public int getTypeCode() {
+						return arrayType.getDefaultSqlTypeCode();
+					}
+
+					@Override
+					public String getTypeName() {
+						return null;
+					}
+
+					@Override
+					public int getColumnSize() {
+						return 0;
+					}
+
+					@Override
+					public int getDecimalDigits() {
+						return 0;
+					}
+				},
+				new DelegatingJdbcTypeIndicators( indicators ) {
+					@Override
+					public Integer getExplicitJdbcTypeCode() {
+						return arrayType.getDefaultSqlTypeCode();
+					}
+
+					@Override
+					public int getPreferredSqlTypeCodeForArray() {
+						return arrayType.getDefaultSqlTypeCode();
+					}
+
+					@Override
+					public int getPreferredSqlTypeCodeForArray(int elementSqlTypeCode) {
+						return arrayType.getDefaultSqlTypeCode();
+					}
+				}
 		);
 		if ( resolvedType instanceof BasicPluralType<?,?> ) {
 			register( resolvedType );
@@ -201,11 +243,7 @@ public class BasicTypeRegistry implements Serializable {
 	 * JdbcType combo or create (and register) one.
 	 */
 	public <J> BasicType<J> resolve(JavaType<J> javaType, JdbcType jdbcType, Supplier<BasicType<J>> creator) {
-		final var registeredBasicType = registryForJdbcType( jdbcType ).get( javaType );
-		//noinspection unchecked
-		return registeredBasicType != null
-				? (BasicType<J>) registeredBasicType
-				: createIfUnregistered( javaType, jdbcType, creator );
+		return createIfUnregistered( javaType, jdbcType, creator );
 	}
 
 	private <J> BasicType<J> createIfUnregistered(
@@ -214,7 +252,7 @@ public class BasicTypeRegistry implements Serializable {
 			Supplier<BasicType<J>> creator) {
 		// Before simply creating the type, we try to find if there is a registered type for this java type,
 		// and if so, if the jdbc type descriptor matches. Unless it does, we at least reuse the name
-		final BasicType<J> registeredType = getRegisteredType( javaType.getJavaType() );
+		final var registeredType = getRegisteredType( javaType.getJavaTypeClass() );
 		if ( registeredTypeMatches( javaType, jdbcType, registeredType ) ) {
 			return registeredType;
 		}
@@ -233,7 +271,6 @@ public class BasicTypeRegistry implements Serializable {
 
 	private <J> void register(JavaType<J> javaType, JdbcType jdbcType, BasicType<J> createdType) {
 		if ( createdType != null ) {
-			registryForJdbcType( jdbcType ).put( javaType, createdType );
 			// if we are still building mappings, register this adhoc
 			// type via a unique code. (This is to support Envers.)
 			try {
@@ -269,27 +306,12 @@ public class BasicTypeRegistry implements Serializable {
 			throw new HibernateException( "Type to register cannot be null" );
 		}
 
-		applyOrOverwriteEntry( type );
-
 		// explicit registration keys
 		if ( isEmpty( keys ) ) {
 			LOG.typeDefinedNoRegistrationKeys( type );
 		}
 		else {
 			applyRegistrationKeys( type, keys );
-		}
-	}
-
-	private void applyOrOverwriteEntry(BasicType<?> type) {
-		final var jdbcType = type.getJdbcType();
-		final var existing = registryForJdbcType( jdbcType ).put( type.getMappedJavaType(), type );
-		if ( existing != null ) {
-			LOG.tracef(
-					"BasicTypeRegistry registration overwritten (%s + %s); previous =`%s`",
-					jdbcType.getFriendlyName(),
-					type.getJavaTypeDescriptor(),
-					existing
-			);
 		}
 	}
 
@@ -337,8 +359,6 @@ public class BasicTypeRegistry implements Serializable {
 			throw new HibernateException( "Type to register cannot be null" );
 		}
 
-		primeRegistryEntry( type );
-
 		// Legacy name registration
 		if ( isNotEmpty( legacyTypeClassName ) ) {
 			typesByName.put( legacyTypeClassName, type );
@@ -374,26 +394,6 @@ public class BasicTypeRegistry implements Serializable {
 		else {
 			applyRegistrationKeys( type, registrationKeys );
 		}
-	}
-
-	private void primeRegistryEntry(BasicType<?> type) {
-		final var jdbcType = type.getJdbcType();
-		final var existing = registryForJdbcType( jdbcType ).get( type.getMappedJavaType() );
-		if ( existing != null ) {
-			LOG.tracef(
-					"Skipping registration of BasicType (%s + %s); still priming. existing = %s",
-					jdbcType.getFriendlyName(),
-					type.getJavaTypeDescriptor(),
-					existing
-			);
-		}
-		else {
-			registryForJdbcType( jdbcType ).put( type.getMappedJavaType(), type );
-		}
-	}
-
-	private Map<JavaType<?>, BasicType<?>> registryForJdbcType(JdbcType jdbcType) {
-		return registryValues.computeIfAbsent( jdbcType, key -> new ConcurrentHashMap<>() );
 	}
 
 	private void applyRegistrationKeys(BasicType<?> type, String[] keys) {

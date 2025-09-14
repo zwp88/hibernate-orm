@@ -23,6 +23,7 @@ import static org.hibernate.pretty.MessageHelper.collectionInfoString;
  * @author Gavin King
  */
 public class EvictVisitor extends AbstractVisitor {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( EvictVisitor.class );
 
 	private final Object owner;

@@ -41,6 +41,7 @@ import static org.hibernate.engine.FetchStyle.SUBSELECT;
  * @author Steve Ebersole
  */
 public class FetchProfile {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( FetchProfile.class );
 
 	private final String name;

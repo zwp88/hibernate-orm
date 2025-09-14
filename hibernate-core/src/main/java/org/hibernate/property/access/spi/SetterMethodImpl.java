@@ -24,6 +24,7 @@ import static org.hibernate.internal.CoreLogging.messageLogger;
  */
 @Internal
 public class SetterMethodImpl implements Setter {
+
 	private static final CoreMessageLogger LOG = messageLogger( SetterMethodImpl.class );
 
 	private final Class<?> containerClass;
@@ -36,7 +37,6 @@ public class SetterMethodImpl implements Setter {
 		this.containerClass = containerClass;
 		this.propertyName = propertyName;
 		this.setterMethod = setterMethod;
-
 		this.isPrimitive = setterMethod.getParameterTypes()[0].isPrimitive();
 	}
 
@@ -66,7 +66,7 @@ public class SetterMethodImpl implements Setter {
 			}
 		}
 		catch (InvocationTargetException ite) {
-			final Throwable cause = ite.getCause();
+			final var cause = ite.getCause();
 			if ( cause instanceof Error error ) {
 				// HHH-16403 Don't wrap Error
 				throw error;
@@ -100,7 +100,7 @@ public class SetterMethodImpl implements Setter {
 				);
 			}
 			else {
-				final Class<?> expectedType = setterMethod.getParameterTypes()[0];
+				final var expectedType = setterMethod.getParameterTypes()[0];
 				LOG.illegalPropertySetterArgument( containerClass.getName(), propertyName );
 				LOG.expectedType( expectedType.getName(), value == null ? null : value.getClass().getName() );
 				throw new PropertySetterAccessException(

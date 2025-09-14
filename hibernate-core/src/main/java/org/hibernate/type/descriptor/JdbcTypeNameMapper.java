@@ -22,6 +22,7 @@ import static org.hibernate.internal.CoreLogging.messageLogger;
  * @author Steve Ebersole
  */
 public final class JdbcTypeNameMapper {
+
 	private static final CoreMessageLogger LOG = messageLogger( JdbcTypeNameMapper.class );
 
 	private static final Map<Integer, String> JDBC_TYPE_MAP = buildJdbcTypeMap( Types.class );

@@ -4,7 +4,6 @@
  */
 package org.hibernate.engine.jdbc.batch.internal;
 
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.LinkedHashSet;
 
@@ -18,13 +17,8 @@ import org.hibernate.engine.jdbc.mutation.TableInclusionChecker;
 import org.hibernate.engine.jdbc.mutation.group.PreparedStatementDetails;
 import org.hibernate.engine.jdbc.mutation.group.PreparedStatementGroup;
 import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
-import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.jdbc.spi.SqlExceptionHelper;
 import org.hibernate.engine.jdbc.spi.SqlStatementLogger;
-import org.hibernate.event.monitor.spi.EventMonitor;
-import org.hibernate.event.monitor.spi.DiagnosticEvent;
-import org.hibernate.resource.jdbc.spi.JdbcEventHandler;
-import org.hibernate.resource.jdbc.spi.JdbcSessionOwner;
 
 import static java.util.Objects.requireNonNull;
 import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
@@ -65,7 +59,7 @@ public class BatchImpl implements Batch {
 		this.jdbcCoordinator = jdbcCoordinator;
 		this.statementGroup = statementGroup;
 
-		final JdbcServices jdbcServices =
+		final var jdbcServices =
 				jdbcCoordinator.getJdbcSessionOwner().getJdbcSessionContext().getJdbcServices();
 		sqlStatementLogger = jdbcServices.getSqlStatementLogger();
 		sqlExceptionHelper = jdbcServices.getSqlExceptionHelper();
@@ -131,7 +125,7 @@ public class BatchImpl implements Batch {
 				}
 				else {
 					//noinspection resource
-					final PreparedStatement statement = statementDetails.resolveStatement();
+					final var statement = statementDetails.resolveStatement();
 					final String sqlString = statementDetails.getSqlString();
 					sqlStatementLogger.logStatement( sqlString );
 					jdbcValueBindings.beforeStatement( statementDetails );
@@ -169,7 +163,7 @@ public class BatchImpl implements Batch {
 	}
 
 	protected void clearBatch(PreparedStatementDetails statementDetails) {
-		final PreparedStatement statement = statementDetails.getStatement();
+		final var statement = statementDetails.getStatement();
 		assert statement != null;
 
 		try {
@@ -192,7 +186,7 @@ public class BatchImpl implements Batch {
 	 * Convenience method to notify registered observers of an explicit execution of this batch.
 	 */
 	protected final void notifyObserversExplicitExecution() {
-		for ( BatchObserver observer : observers ) {
+		for ( var observer : observers ) {
 			observer.batchExplicitlyExecuted();
 		}
 	}
@@ -201,7 +195,7 @@ public class BatchImpl implements Batch {
 	 * Convenience method to notify registered observers of an implicit execution of this batch.
 	 */
 	protected final void notifyObserversImplicitExecution() {
-		for ( BatchObserver observer : observers ) {
+		for ( var observer : observers ) {
 			observer.batchImplicitlyExecuted();
 		}
 	}
@@ -247,18 +241,18 @@ public class BatchImpl implements Batch {
 			);
 		}
 
-		final JdbcSessionOwner jdbcSessionOwner = jdbcCoordinator.getJdbcSessionOwner();
-		final JdbcEventHandler eventHandler = jdbcSessionOwner.getJdbcSessionContext().getEventHandler();
+		final var jdbcSessionOwner = jdbcCoordinator.getJdbcSessionOwner();
+		final var eventHandler = jdbcSessionOwner.getJdbcSessionContext().getEventHandler();
 		try {
 			getStatementGroup().forEachStatement( (tableName, statementDetails) -> {
 				final String sql = statementDetails.getSqlString();
-				final PreparedStatement statement = statementDetails.getStatement();
+				final var statement = statementDetails.getStatement();
 				if ( statement != null ) {
 					try {
 						if ( statementDetails.getMutatingTableDetails().isIdentifierTable() ) {
+							final var eventMonitor = jdbcSessionOwner.getEventMonitor();
+							final var executionEvent = eventMonitor.beginJdbcBatchExecutionEvent();
 							final int[] rowCounts;
-							final EventMonitor eventMonitor = jdbcSessionOwner.getEventMonitor();
-							final DiagnosticEvent executionEvent = eventMonitor.beginJdbcBatchExecutionEvent();
 							try {
 								eventHandler.jdbcExecuteBatchStart();
 								rowCounts = statement.executeBatch();
@@ -319,7 +313,7 @@ public class BatchImpl implements Batch {
 	@Override
 	public void release() {
 		if ( BATCH_MESSAGE_LOGGER.isInfoEnabled() ) {
-			final PreparedStatementGroup statementGroup = getStatementGroup();
+			final var statementGroup = getStatementGroup();
 			if ( statementGroup.getNumberOfStatements() != 0
 					&& statementGroup.hasMatching( statementDetails -> statementDetails.getStatement() != null ) ) {
 				BATCH_MESSAGE_LOGGER.batchContainedStatementsOnRelease();

@@ -48,6 +48,7 @@ import static org.hibernate.internal.util.StringHelper.splitTrimmingTokens;
 import static org.hibernate.internal.util.config.ConfigurationHelper.getBoolean;
 
 public abstract class AbstractInformationExtractorImpl implements InformationExtractor {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( AbstractInformationExtractorImpl.class );
 
 	private final String[] tableTypes;

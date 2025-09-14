@@ -4,6 +4,7 @@
  */
 package org.hibernate.query.sqm.tree.expression;
 
+import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.UnaryArithmeticOperator;
@@ -18,21 +19,27 @@ public class SqmUnaryOperation<T> extends AbstractSqmExpression<T> implements Sq
 	private final UnaryArithmeticOperator operation;
 	private final SqmExpression<T> operand;
 
-	public SqmUnaryOperation(UnaryArithmeticOperator operation, SqmExpression<T> operand) {
+	public SqmUnaryOperation(
+			UnaryArithmeticOperator operation,
+			SqmExpression<T> operand,
+			NodeBuilder nodeBuilder) {
+		//noinspection unchecked
 		this(
 				operation,
 				operand,
-				operand.nodeBuilder().getTypeConfiguration().getBasicTypeForJavaType(
-						operand.getExpressible().getRelationalJavaType().getJavaType()
-				)
+				(SqmBindableType<T>) // TODO: this cast is unsound
+						nodeBuilder.getTypeConfiguration()
+								.resolveArithmeticType( operand.getExpressible() ),
+				nodeBuilder
 		);
 	}
 
 	public SqmUnaryOperation(
 			UnaryArithmeticOperator operation,
 			SqmExpression<T> operand,
-			SqmBindableType<T> inherentType) {
-		super( inherentType, operand.nodeBuilder() );
+			SqmBindableType<T> inherentType,
+			NodeBuilder nodeBuilder) {
+		super( inherentType, nodeBuilder );
 		this.operation = operation;
 		this.operand = operand;
 	}
@@ -48,14 +55,15 @@ public class SqmUnaryOperation<T> extends AbstractSqmExpression<T> implements Sq
 				new SqmUnaryOperation<>(
 						operation,
 						operand.copy( context ),
-						getNodeType()
+						getNodeType(),
+						nodeBuilder()
 				)
 		);
 		copyTo( expression, context );
 		return expression;
 	}
 
-	public SqmExpression getOperand() {
+	public SqmExpression<T> getOperand() {
 		return operand;
 	}
 

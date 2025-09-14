@@ -8,17 +8,36 @@ import java.sql.Connection;
 import java.util.TimeZone;
 import java.util.function.UnaryOperator;
 
+import org.hibernate.engine.creation.CommonBuilder;
 import org.hibernate.resource.jdbc.spi.PhysicalConnectionHandlingMode;
 import org.hibernate.resource.jdbc.spi.StatementInspector;
 
 /**
- * Allows creation of a new {@link Session} with specific options.
+ * Allows creation of a new {@link Session} with specific options
+ * overriding the defaults from the {@link SessionFactory}.
+ * <pre>
+ * try (var session =
+ *         sessionFactory.withOptions()
+ *             .tenantIdentifier(tenantId)
+ *             .initialCacheMode(CacheMode.PUT)
+ *             .flushMode(FlushMode.COMMIT)
+ *             .interceptor(new Interceptor() {
+ *                 &#64;Override
+ *                 public void preFlush(Iterator&lt;Object&gt; entities) {
+ *                     ...
+ *                 }
+ *             })
+ *             .openSession()) {
+ *     ...
+ * }
+ * </pre>
  *
  * @author Steve Ebersole
  *
  * @see SessionFactory#withOptions()
+ * @see SharedSessionBuilder
  */
-public interface SessionBuilder {
+public interface SessionBuilder extends CommonBuilder {
 	/**
 	 * Opens a session with the specified options.
 	 *
@@ -26,41 +45,19 @@ public interface SessionBuilder {
 	 */
 	Session openSession();
 
-	/**
-	 * Adds a specific interceptor to the session options.
-	 *
-	 * @param interceptor The interceptor to use.
-	 *
-	 * @return {@code this}, for method chaining
-	 */
+	@Override
 	SessionBuilder interceptor(Interceptor interceptor);
 
-	/**
-	 * Signifies that no {@link Interceptor} should be used.
-	 * <p>
-	 * By default, if no {@code Interceptor} is explicitly specified, the
-	 * {@code Interceptor} associated with the {@link SessionFactory} is
-	 * inherited by the new {@link Session}.
-	 * <p>
-	 * Calling {@link #interceptor(Interceptor)} with null has the same effect.
-	 *
-	 * @return {@code this}, for method chaining
-	 */
+	@Override
 	SessionBuilder noInterceptor();
 
-	/**
-	 * Applies the given statement inspection function to the session.
-	 *
-	 * @param operator An operator which accepts a SQL string, returning
-	 *                 a processed SQL string to be used by Hibernate
-	 *                 instead of the given original SQL. Alternatively.
-	 *                 the operator may work by side effect, and simply
-	 *                 return the original SQL.
-	 *
-	 * @return {@code this}, for method chaining
-	 *
-	 * @since 7.0
-	 */
+	@Override
+	SessionBuilder noSessionInterceptorCreation();
+
+	@Override
+	SessionBuilder noStatementInspector();
+
+	@Override
 	SessionBuilder statementInspector(UnaryOperator<String> operator);
 
 	/**
@@ -163,7 +160,14 @@ public interface SessionBuilder {
 	 * @return {@code this}, for method chaining
 	 * @since 6.4
 	 */
+	@Override
 	SessionBuilder tenantIdentifier(Object tenantIdentifier);
+
+	@Override
+	SessionBuilder readOnly(boolean readOnly);
+
+	@Override
+	SessionBuilder initialCacheMode(CacheMode cacheMode);
 
 	/**
 	 * Add one or more {@link SessionEventListener} instances to the list of
@@ -189,6 +193,7 @@ public interface SessionBuilder {
 	 *
 	 * @return {@code this}, for method chaining
 	 */
+	@Override
 	SessionBuilder jdbcTimeZone(TimeZone timeZone);
 
 	/**

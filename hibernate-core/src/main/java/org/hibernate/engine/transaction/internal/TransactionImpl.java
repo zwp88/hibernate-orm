@@ -24,6 +24,7 @@ import static org.hibernate.resource.transaction.spi.TransactionCoordinator.Tran
  * @author Steve Ebersole
  */
 public class TransactionImpl implements TransactionImplementor {
+
 	private static final Logger LOG = CoreLogging.logger( TransactionImpl.class );
 
 	private final TransactionCoordinator transactionCoordinator;

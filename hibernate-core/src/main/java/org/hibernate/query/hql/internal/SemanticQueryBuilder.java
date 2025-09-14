@@ -257,7 +257,7 @@ import static org.hibernate.type.spi.TypeConfiguration.isJdbcTemporalType;
  */
 public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implements SqmCreationState {
 
-	private static final Logger log = Logger.getLogger( SemanticQueryBuilder.class );
+	private static final Logger LOG = Logger.getLogger( SemanticQueryBuilder.class );
 	private static final Set<String> JPA_STANDARD_FUNCTIONS = Set.of(
 			"avg",
 			"max",
@@ -396,8 +396,8 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 		final TypeConfiguration typeConfiguration = creationContext.getTypeConfiguration();
 		final JavaTypeRegistry javaTypeRegistry = typeConfiguration.getJavaTypeRegistry();
 		this.integerDomainType = typeConfiguration.standardBasicTypeForJavaType( Integer.class );
-		this.listJavaType = javaTypeRegistry.resolveDescriptor( List.class );
-		this.mapJavaType = javaTypeRegistry.resolveDescriptor( Map.class );
+		this.listJavaType = javaTypeRegistry.getDescriptor( List.class );
+		this.mapJavaType = javaTypeRegistry.getDescriptor( Map.class );
 	}
 
 	@Override
@@ -3210,11 +3210,13 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 					query
 			);
 		}
-		final SelfRenderingSqmFunction<Boolean> contains = getFunctionDescriptor( "array_intersects" ).generateSqmExpression(
-				asList( lhs, rhs ),
-				null,
-				queryEngine()
-		);
+		final SelfRenderingSqmFunction<Boolean> contains =
+				getFunctionDescriptor( "array_intersects" )
+						.generateSqmExpression(
+								asList( lhs, rhs ),
+								null,
+								queryEngine()
+						);
 		return new SqmBooleanExpressionPredicate( contains, negated, nodeBuilder() );
 	}
 
@@ -3222,10 +3224,34 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 	public SqmPredicate visitLikePredicate(HqlParser.LikePredicateContext ctx) {
 		final boolean negated = ctx.NOT() != null;
 		final boolean caseSensitive = ctx.LIKE() != null;
-		if ( ctx.likeEscape() == null ) {
+		final SqmExpression<?> expression = (SqmExpression<?>) ctx.expression( 0 ).accept( this );
+		final SqmExpression<?> pattern = (SqmExpression<?>) ctx.expression( 1 ).accept( this );
+		if ( ctx.REGEXP() != null ) {
+			if ( ctx.likeEscape() != null ) {
+				throw new SemanticException( "'ESCAPE' may not be used with 'LIKE REGEXP'", query );
+			}
+			return new SqmBooleanExpressionPredicate(
+					getFunctionDescriptor( "regexp_like" )
+							.generateSqmExpression(
+									caseSensitive
+											? asList( expression, pattern )
+											: asList( expression, pattern,
+													new SqmLiteral<>( "i",
+															resolveExpressibleTypeBasic( String.class ),
+															nodeBuilder()
+													)
+											),
+									null,
+									queryEngine()
+							),
+					negated,
+					nodeBuilder()
+			);
+		}
+		else if ( ctx.likeEscape() == null ) {
 			return new SqmLikePredicate(
-					(SqmExpression<?>) ctx.expression(0).accept( this ),
-					(SqmExpression<?>) ctx.expression(1).accept( this ),
+					expression,
+					pattern,
 					negated,
 					caseSensitive,
 					nodeBuilder()
@@ -3233,8 +3259,8 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 		}
 		else {
 			return new SqmLikePredicate(
-					(SqmExpression<?>) ctx.expression(0).accept( this ),
-					(SqmExpression<?>) ctx.expression(1).accept( this ),
+					expression,
+					pattern,
 					(SqmExpression<?>) ctx.likeEscape().accept( this ),
 					negated,
 					caseSensitive,
@@ -3746,7 +3772,7 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 		final SqmExpression<?> expression = (SqmExpression<?>) ctx.expression().accept(this);
 		final UnaryArithmeticOperator operator = (UnaryArithmeticOperator) ctx.signOperator().accept(this);
 		TypecheckUtil.assertNumeric( expression, operator );
-		return new SqmUnaryOperation<>( operator, expression );
+		return new SqmUnaryOperation<>( operator, expression, nodeBuilder() );
 	}
 
 	@Override
@@ -4338,9 +4364,8 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 	}
 
 	private SqmLiteral<String> javaStringLiteral(String text) {
-		String unquoted = unquoteJavaStringLiteral( text );
 		return new SqmLiteral<>(
-				unquoted,
+				unquoteJavaStringLiteral( text ),
 				resolveExpressibleTypeBasic( String.class ),
 				nodeBuilder()
 		);
@@ -5543,7 +5568,7 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 		// Note: this is a total misuse of the elements() and indices() functions,
 		//       which are supposed to be a shortcut way to write a subquery!
 		//       used this way, they're just a worse way to write value()/index()
-		log.warn("Misuse of HQL elements() or indices() function, use element() or index() instead");
+		LOG.warn("Misuse of HQL elements() or indices() function, use element() or index() instead");
 
 		if ( getCreationOptions().useStrictJpaCompliance() ) {
 			throw new StrictJpaComplianceViolation( StrictJpaComplianceViolation.Type.HQL_COLLECTION_FUNCTION );

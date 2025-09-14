@@ -42,9 +42,8 @@ import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
  * @author Steve Ebersole
  */
 public class DeferredResultSetAccess extends AbstractResultSetAccess {
-	private static final CoreMessageLogger LOG = CoreLogging.messageLogger(
-			DeferredResultSetAccess.class
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DeferredResultSetAccess.class );
 
 	private final JdbcOperationQuerySelect jdbcSelect;
 	private final JdbcParameterBindings jdbcParameterBindings;

@@ -55,6 +55,7 @@ import static org.hibernate.proxy.HibernateProxy.extractLazyInitializer;
 public class DefaultMergeEventListener
 		extends AbstractSaveEventListener<MergeContext>
 		implements MergeEventListener {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultMergeEventListener.class );
 
 	@Override
@@ -139,7 +140,7 @@ public class DefaultMergeEventListener
 	}
 
 	private void merge(MergeEvent event, MergeContext copiedAlready, Object entity) {
-		final EventSource source = event.getSession();
+		final var source = event.getSession();
 		// Check the persistence context for an entry relating to this
 		// entity to be merged...
 		final String entityName = event.getEntityName();
@@ -594,8 +595,8 @@ public class DefaultMergeEventListener
 		if ( entry == null ) {
 			final Object id = persister.getIdentifier( entity, source );
 			if ( id != null ) {
-				final EntityKey key = source.generateEntityKey( id, persister );
-				final Object managedEntity = persistenceContext.getEntity( key );
+				final var entityKey = source.generateEntityKey( id, persister );
+				final Object managedEntity = persistenceContext.getEntity( entityKey );
 				entry = persistenceContext.getEntry( managedEntity );
 			}
 		}

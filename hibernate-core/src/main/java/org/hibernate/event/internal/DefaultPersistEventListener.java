@@ -33,6 +33,7 @@ import static org.hibernate.pretty.MessageHelper.infoString;
 public class DefaultPersistEventListener
 		extends AbstractSaveEventListener<PersistContext>
 		implements PersistEventListener, CallbackRegistryConsumer {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultPersistEventListener.class );
 
 	@Override

@@ -18,7 +18,8 @@ import org.jboss.logging.Logger;
  * @author Steve Ebersole
  */
 public class IntegratorServiceImpl implements IntegratorService {
-	private static final Logger LOG = Logger.getLogger( IntegratorServiceImpl.class.getName() );
+
+	private static final Logger LOG = Logger.getLogger( IntegratorServiceImpl.class );
 
 	private final LinkedHashSet<Integrator> integrators = new LinkedHashSet<>();
 

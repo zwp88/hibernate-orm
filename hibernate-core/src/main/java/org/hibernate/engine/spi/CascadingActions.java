@@ -18,6 +18,7 @@ import org.hibernate.event.spi.EventSource;
 import org.hibernate.event.spi.MergeContext;
 import org.hibernate.event.spi.PersistContext;
 import org.hibernate.event.spi.RefreshContext;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.type.AssociationType;
@@ -26,9 +27,7 @@ import org.hibernate.type.ForeignKeyDirection;
 import org.hibernate.type.ManyToOneType;
 import org.hibernate.type.OneToOneType;
 import org.hibernate.type.Type;
-import org.jboss.logging.Logger;
 
-import java.lang.invoke.MethodHandles;
 import java.util.Iterator;
 import java.util.List;
 
@@ -41,11 +40,8 @@ import static org.hibernate.internal.util.StringHelper.join;
  * @author Steve Ebersole
  */
 public class CascadingActions {
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			CascadingAction.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( CascadingAction.class );
 
 	/**
 	 * Disallow instantiation

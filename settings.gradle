@@ -165,7 +165,6 @@ dependencyResolutionManagement {
             library( "inject", "jakarta.inject", "jakarta.inject-api" ).versionRef( injectVersion )
             library( "jaxbApi", "jakarta.xml.bind", "jakarta.xml.bind-api" ).versionRef( jaxbApiVersion )
             library( "jaxb", "org.glassfish.jaxb", "jaxb-runtime" ).versionRef( jaxbRuntimeVersion )
-            library( "xjc", "org.glassfish.jaxb", "jaxb-xjc" ).versionRef( xjcVersion )
         }
         testLibs {
             def junit5Version = version "junit5", "5.13.4"
@@ -182,7 +181,7 @@ dependencyResolutionManagement {
             def shrinkwrapVersion = version "shrinkwrap", "1.2.6"
             def shrinkwrapDescriptorsVersion = version "shrinkwrapDescriptors", "2.0.0"
             def weldVersion = version "weld", "6.0.3.Final"
-            def wildFlyTxnClientVersion = version "wildFlyTxnClient", "2.0.0.Final"
+            def wildFlyTxnClientVersion = version "wildFlyTxnClient", "3.0.5.Final"
 
             def jfrUnitVersion = version "jfrUnit", "1.0.0.Alpha2"
 
@@ -212,7 +211,7 @@ dependencyResolutionManagement {
 
             library( "jbossJta", "org.jboss.narayana.jta", "narayana-jta" ).versionRef( jbossJtaVersion )
             library( "jbossTxSpi", "org.jboss", "jboss-transaction-spi" ).versionRef( jbossTxSpiVersion )
-            library( "wildFlyTxnClient", "org.wildfly.transaction", "wildfly-transaction-client-jakarta" ).versionRef( wildFlyTxnClientVersion )
+            library( "wildFlyTxnClient", "org.wildfly.transaction", "wildfly-transaction-client" ).versionRef( wildFlyTxnClientVersion )
 
             library( "weld", "org.jboss.weld.se", "weld-se-shaded" ).versionRef( weldVersion )
 
@@ -229,8 +228,8 @@ dependencyResolutionManagement {
             def h2gisVersion = version "h2gis", overrideableVersion( "gradle.libs.versions.h2gis", "2.2.3" )
             def hsqldbVersion = version "hsqldb", overrideableVersion( "gradle.libs.versions.hsqldb", "2.7.4" )
             def informixVersion = version "informix", "15.0.0.1.1"
-            def mariadbVersion = version "mariadb", "3.5.3"
-            def mssqlVersion = version "mssql", "12.10.1.jre11"
+            def mariadbVersion = version "mariadb", "3.5.5"
+            def mssqlVersion = version "mssql", "13.2.0.jre11"
             def mysqlVersion = version "mysql", "9.4.0"
             def oracleVersion = version "oracle", "23.9.0.25.07"
             def oracleJacksonOsonExtension = version "oracleJacksonOsonExtension", "1.0.4"

@@ -9,7 +9,6 @@ import org.hibernate.HibernateException;
 import org.hibernate.action.internal.DelayedPostInsertIdentifier;
 import org.hibernate.collection.spi.PersistentCollection;
 import org.hibernate.engine.spi.CollectionEntry;
-import org.hibernate.engine.spi.EntityEntry;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.event.spi.EventSource;
@@ -26,45 +25,45 @@ import static org.hibernate.pretty.MessageHelper.collectionInfoString;
  * @author Gavin King
  */
 public final class Collections {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( Collections.class );
 
 	/**
 	 * record the fact that this collection was dereferenced
 	 *
-	 * @param coll The collection to be updated by un-reachability.
+	 * @param collection The collection to be updated by unreachability.
 	 * @param session The session
 	 */
-	public static void processUnreachableCollection(PersistentCollection<?> coll, SessionImplementor session) {
-		if ( coll.getOwner() == null ) {
-			processNeverReferencedCollection( coll, session );
+	public static void processUnreachableCollection(PersistentCollection<?> collection, SessionImplementor session) {
+		if ( collection.getOwner() == null ) {
+			processNeverReferencedCollection( collection, session );
 		}
 		else {
-			processDereferencedCollection( coll, session );
+			processDereferencedCollection( collection, session );
 		}
 	}
 
-	private static void processDereferencedCollection(PersistentCollection<?> coll, SessionImplementor session) {
+	private static void processDereferencedCollection(PersistentCollection<?> collection, SessionImplementor session) {
 		final var persistenceContext = session.getPersistenceContextInternal();
-		final var entry = persistenceContext.getCollectionEntry( coll );
+		final var entry = persistenceContext.getCollectionEntry( collection );
 		final var loadedPersister = entry.getLoadedPersister();
 
 		if ( loadedPersister != null && LOG.isTraceEnabled() ) {
-			LOG.trace("Collection dereferenced: "
-					+ collectionInfoString( loadedPersister, coll, entry.getLoadedKey(), session ) );
+			LOG.trace( "Collection dereferenced: "
+						+ collectionInfoString( loadedPersister, collection, entry.getLoadedKey(), session ) );
 		}
 
 		// do a check
-		final boolean hasOrphanDelete = loadedPersister != null && loadedPersister.hasOrphanDelete();
-		if ( hasOrphanDelete ) {
-			final Object ownerId = getOwnerId( coll, session, loadedPersister );
+		if ( loadedPersister != null && loadedPersister.hasOrphanDelete() ) {
+			final Object ownerId = getOwnerId( collection, session, loadedPersister );
 			final var key = session.generateEntityKey( ownerId, loadedPersister.getOwnerEntityPersister() );
 			final Object owner = persistenceContext.getEntity( key );
 			if ( owner == null ) {
 				throw new AssertionFailure( "collection owner not associated with session: " + loadedPersister.getRole() );
 			}
-			final EntityEntry e = persistenceContext.getEntry( owner );
+			final var entityEntry = persistenceContext.getEntry( owner );
 			//only collections belonging to deleted entities are allowed to be dereferenced in the case of orphan delete
-			if ( e != null && !e.getStatus().isDeletedOrGone() ) {
+			if ( entityEntry != null && !entityEntry.getStatus().isDeletedOrGone() ) {
 				throw new HibernateException(
 						"A collection with orphan deletion was no longer referenced by the owning entity instance: "
 						+ loadedPersister.getRole()
@@ -75,27 +74,27 @@ public final class Collections {
 		// do the work
 		entry.setCurrentPersister( null );
 		entry.setCurrentKey( null );
-		prepareCollectionForUpdate( coll, entry, session.getFactory() );
+		prepareCollectionForUpdate( collection, entry, session.getFactory() );
 
 	}
 
 	private static Object getOwnerId(
-			PersistentCollection<?> coll,
+			PersistentCollection<?> collection,
 			SessionImplementor session,
 			CollectionPersister loadedPersister) {
-
+		final Object owner = collection.getOwner();
 		Object ownerId =
 				loadedPersister.getOwnerEntityPersister()
-						.getIdentifier( coll.getOwner(), session );
+						.getIdentifier( owner, session );
 		if ( ownerId == null ) {
 			// the owning entity may have been deleted and its identifier unset due to
-			// identifier-rollback; in which case, try to look up its identifier from
+			// identifier rollback; in which case, try to look up its identifier from
 			// the persistence context
 			if ( session.getFactory().getSessionFactoryOptions()
 					.isIdentifierRollbackEnabled() ) {
 				final var ownerEntry =
 						session.getPersistenceContextInternal()
-								.getEntry( coll.getOwner() );
+								.getEntry( owner );
 				if ( ownerEntry != null ) {
 					ownerId = ownerEntry.getId();
 				}
@@ -107,22 +106,22 @@ public final class Collections {
 		return ownerId;
 	}
 
-	private static void processNeverReferencedCollection(PersistentCollection<?> coll, SessionImplementor session)
+	private static void processNeverReferencedCollection(PersistentCollection<?> collection, SessionImplementor session)
 			throws HibernateException {
 		final var entry =
 				session.getPersistenceContextInternal()
-						.getCollectionEntry( coll );
+						.getCollectionEntry( collection );
+		final var loadedPersister = entry.getLoadedPersister();
+		final Object loadedKey = entry.getLoadedKey();
 
 		if ( LOG.isTraceEnabled() ) {
-			LOG.trace( "Found collection with unloaded owner: " +
-					collectionInfoString( entry.getLoadedPersister(), coll, entry.getLoadedKey(), session ) );
+			LOG.trace( "Found collection with unloaded owner: "
+						+ collectionInfoString( loadedPersister, collection, loadedKey, session ) );
 		}
 
-		entry.setCurrentPersister( entry.getLoadedPersister() );
-		entry.setCurrentKey( entry.getLoadedKey() );
-
-		prepareCollectionForUpdate( coll, entry, session.getFactory() );
-
+		entry.setCurrentPersister( loadedPersister );
+		entry.setCurrentKey( loadedKey );
+		prepareCollectionForUpdate( collection, entry, session.getFactory() );
 	}
 
 	/**
@@ -139,11 +138,11 @@ public final class Collections {
 			Object entity,
 			SessionImplementor session) {
 		collection.setOwner( entity );
-		final var entry =
+		final var collectionEntry =
 				session.getPersistenceContextInternal()
 						.getCollectionEntry( collection );
 
-		if ( entry == null ) {
+		if ( collectionEntry == null ) {
 			// refer to comment in StatefulPersistenceContext.addCollection()
 			throw new HibernateException( "Found two representations of same collection: " + type.getRole() );
 		}
@@ -153,35 +152,42 @@ public final class Collections {
 				factory.getMappingMetamodel()
 						.getCollectionDescriptor( type.getRole() );
 
-		entry.setCurrentPersister( persister );
+		collectionEntry.setCurrentPersister( persister );
 		//TODO: better to pass the id in as an argument?
-		entry.setCurrentKey( type.getKeyOfOwner( entity, session ) );
+		collectionEntry.setCurrentKey( type.getKeyOfOwner( entity, session ) );
 
 		final boolean isBytecodeEnhanced =
 				persister.getOwnerEntityPersister()
 						.getBytecodeEnhancementMetadata()
 						.isEnhancedForLazyLoading();
 		if ( isBytecodeEnhanced && !collection.wasInitialized() ) {
-			// the class of the collection owner is enhanced for lazy loading and we found an un-initialized PersistentCollection
-			// 		- skip it
+			// the class of the collection owner is enhanced for lazy loading,
+			// and we found an un-initialized PersistentCollection, so skip it
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace( "Skipping uninitialized bytecode-lazy collection: "
-						+ collectionInfoString( persister, collection, entry.getCurrentKey(), session ) );
+							+ collectionInfoString( persister, collection, collectionEntry.getCurrentKey(), session ) );
 			}
-			entry.setReached( true );
-			entry.setProcessed( true );
-			return;
+			collectionEntry.setReached( true );
+			collectionEntry.setProcessed( true );
 		}
-
 		// The CollectionEntry.isReached() stuff is just to detect any silly users
 		// who set up circular or shared references between/to collections.
-		if ( entry.isReached() ) {
+		else if ( collectionEntry.isReached() ) {
 			// We've been here before
 			throw new HibernateException( "Found shared references to a collection: " + type.getRole() );
 		}
+		else {
+			collectionEntry.setReached( true );
+			logReachedCollection( collection, session, persister, collectionEntry );
+			prepareCollectionForUpdate( collection, collectionEntry, factory );
+		}
+	}
 
-		entry.setReached( true );
-
+	private static void logReachedCollection(
+			PersistentCollection<?> collection,
+			SessionImplementor session,
+			CollectionPersister persister,
+			CollectionEntry collectionEntry) {
 		if ( LOG.isTraceEnabled() ) {
 			if ( collection.wasInitialized() ) {
 				LOG.tracef(
@@ -189,13 +195,13 @@ public final class Collections {
 						collectionInfoString(
 								persister,
 								collection,
-								entry.getCurrentKey(),
+								collectionEntry.getCurrentKey(),
 								session
 						),
 						collectionInfoString(
-								entry.getLoadedPersister(),
+								collectionEntry.getLoadedPersister(),
 								collection,
-								entry.getLoadedKey(),
+								collectionEntry.getLoadedKey(),
 								session
 						)
 				);
@@ -206,20 +212,18 @@ public final class Collections {
 						collectionInfoString(
 								persister,
 								collection,
-								entry.getCurrentKey(),
+								collectionEntry.getCurrentKey(),
 								session
 						),
 						collectionInfoString(
-								entry.getLoadedPersister(),
+								collectionEntry.getLoadedPersister(),
 								collection,
-								entry.getLoadedKey(),
+								collectionEntry.getLoadedKey(),
 								session
 						)
 				);
 			}
 		}
-
-		prepareCollectionForUpdate( collection, entry, factory );
 	}
 
 	/**
@@ -229,23 +233,22 @@ public final class Collections {
 	 */
 	private static void prepareCollectionForUpdate(
 			PersistentCollection<?> collection,
-			CollectionEntry entry,
+			CollectionEntry collectionEntry,
 			SessionFactoryImplementor factory) {
-		if ( entry.isProcessed() ) {
+		if ( collectionEntry.isProcessed() ) {
 			throw new AssertionFailure( "collection was processed twice by flush()" );
 		}
-		entry.setProcessed( true );
+		collectionEntry.setProcessed( true );
 
-		final var loadedPersister = entry.getLoadedPersister();
-		final var currentPersister = entry.getCurrentPersister();
+		final var loadedPersister = collectionEntry.getLoadedPersister();
+		final var currentPersister = collectionEntry.getCurrentPersister();
 		if ( loadedPersister != null || currentPersister != null ) {
 			// it is or was referenced _somewhere_
-
 
 			// if either its role changed, or its key changed
 			final boolean ownerChanged =
 					loadedPersister != currentPersister
-						|| wasKeyChanged( entry, factory, currentPersister );
+						|| wasKeyChanged( collectionEntry, factory, currentPersister );
 
 			if ( ownerChanged ) {
 				// do a check
@@ -261,13 +264,13 @@ public final class Collections {
 
 				// do the work
 				if ( currentPersister != null ) {
-					entry.setDorecreate( true );
+					collectionEntry.setDorecreate( true );
 				}
 
 				if ( loadedPersister != null ) {
 					// we will need to remove the old entries
-					entry.setDoremove( true );
-					if ( entry.isDorecreate() ) {
+					collectionEntry.setDoremove( true );
+					if ( collectionEntry.isDorecreate() ) {
 						LOG.trace( "Forcing collection initialization" );
 						collection.forceInitialization();
 					}
@@ -275,7 +278,7 @@ public final class Collections {
 			}
 			else if ( collection.isDirty() ) {
 				// the collection's elements have changed
-				entry.setDoupdate( true );
+				collectionEntry.setDoupdate( true );
 			}
 		}
 	}
@@ -288,7 +291,7 @@ public final class Collections {
 			CollectionEntry entry, SessionFactoryImplementor factory, CollectionPersister currentPersister) {
 		return currentPersister != null
 			&& !currentPersister.getKeyType().isEqual( entry.getLoadedKey(), entry.getCurrentKey(), factory )
-			&& !(entry.getLoadedKey() instanceof DelayedPostInsertIdentifier);
+			&& !( entry.getLoadedKey() instanceof DelayedPostInsertIdentifier );
 	}
 
 	/**
@@ -314,5 +317,4 @@ public final class Collections {
 	 */
 	private Collections() {
 	}
-
 }

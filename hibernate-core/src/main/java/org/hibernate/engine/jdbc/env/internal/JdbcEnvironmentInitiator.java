@@ -4,7 +4,6 @@
  */
 package org.hibernate.engine.jdbc.env.internal;
 
-import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -32,6 +31,7 @@ import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.jdbc.spi.SqlExceptionHelper;
 import org.hibernate.event.monitor.internal.EmptyEventMonitor;
 import org.hibernate.event.monitor.spi.EventMonitor;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.log.ConnectionInfoLogger;
 import org.hibernate.jdbc.AbstractReturningWork;
@@ -47,7 +47,6 @@ import org.hibernate.resource.transaction.spi.TransactionCoordinatorBuilder;
 import org.hibernate.service.spi.ServiceRegistryImplementor;
 import org.hibernate.stat.spi.StatisticsImplementor;
 
-import org.jboss.logging.Logger;
 
 import static org.hibernate.engine.jdbc.JdbcLogging.JDBC_MESSAGE_LOGGER;
 
@@ -67,7 +66,7 @@ import static org.hibernate.cfg.JdbcSettings.DIALECT;
 import static org.hibernate.cfg.JdbcSettings.DIALECT_DB_VERSION;
 import static org.hibernate.cfg.JdbcSettings.JAKARTA_HBM2DDL_DB_VERSION;
 import static org.hibernate.engine.config.spi.StandardConverters.BOOLEAN;
-import static org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentImpl.isMultiTenancyEnabled;
+import static org.hibernate.context.spi.MultiTenancy.isMultiTenancyEnabled;
 import static org.hibernate.internal.log.DeprecationLogger.DEPRECATION_LOGGER;
 import static org.hibernate.internal.util.NullnessHelper.coalesceSuppliedValues;
 import static org.hibernate.internal.util.StringHelper.isNotEmpty;
@@ -80,11 +79,8 @@ import static org.hibernate.internal.util.config.ConfigurationHelper.getInteger;
  * @author Steve Ebersole
  */
 public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEnvironment> {
-	private static final CoreMessageLogger log = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			JdbcEnvironmentInitiator.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( JdbcEnvironmentInitiator.class );
 
 	public static final JdbcEnvironmentInitiator INSTANCE = new JdbcEnvironmentInitiator();
 
@@ -185,14 +181,12 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 	}
 
 	private DatabaseConnectionInfo buildInfo(ServiceRegistryImplementor registry, JdbcEnvironment environment) {
-		if ( isMultiTenancyEnabled( registry ) ) {
-			return registry.requireService( MultiTenantConnectionProvider.class )
-					.getDatabaseConnectionInfo( environment.getDialect() );
-		}
-		else {
-			return registry.requireService( ConnectionProvider.class )
-					.getDatabaseConnectionInfo( environment.getDialect(), environment.getExtractedDatabaseMetaData() );
-		}
+		return isMultiTenancyEnabled( registry )
+				? registry.requireService( MultiTenantConnectionProvider.class )
+						.getDatabaseConnectionInfo( environment.getDialect() )
+				: registry.requireService( ConnectionProvider.class )
+						.getDatabaseConnectionInfo( environment.getDialect(),
+								environment.getExtractedDatabaseMetaData() );
 	}
 
 	private DatabaseConnectionInfo buildInfo(Map<String, Object> configurationValues, JdbcEnvironment environment) {
@@ -391,7 +385,7 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 								);
 							}
 							catch (SQLException e) {
-								log.unableToObtainConnectionMetadata( e );
+								LOG.unableToObtainConnectionMetadata( e );
 							}
 
 							// accessing the JDBC metadata failed
@@ -422,7 +416,7 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 			);
 		}
 		catch ( Exception e ) {
-			log.unableToObtainConnectionToQueryMetadata( e );
+			LOG.unableToObtainConnectionToQueryMetadata( e );
 		}
 		finally {
 			//noinspection resource
@@ -433,7 +427,7 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 	}
 
 	private static void logDatabaseAndDriver(DatabaseMetaData dbmd) throws SQLException {
-		if ( log.isDebugEnabled() ) {
+		if ( LOG.isDebugEnabled() ) {
 			JDBC_MESSAGE_LOGGER.logDatabaseInfo(
 					dbmd.getDatabaseProductName(),
 					dbmd.getDatabaseProductVersion(),
@@ -453,32 +447,21 @@ public class JdbcEnvironmentInitiator implements StandardServiceInitiator<JdbcEn
 
 	private static boolean explicitDialectConfiguration(String explicitDatabaseName,
 			Map<String, Object> configurationValues) {
-		return isNotEmpty( explicitDatabaseName ) || isNotNullAndNotEmpty( configurationValues.get( DIALECT ) );
+		return isNotEmpty( explicitDatabaseName )
+			|| isNotNullAndNotEmpty( configurationValues.get( DIALECT ) );
 	}
 
 	private static boolean isNotNullAndNotEmpty(Object object) {
 		return object != null
-			&& ( !(object instanceof String string) || !string.isEmpty() );
+			&& !( object instanceof String string && string.isEmpty() );
 	}
 
-	private JdbcConnectionAccess buildJdbcConnectionAccess(ServiceRegistryImplementor registry) {
+	public static JdbcConnectionAccess buildJdbcConnectionAccess(ServiceRegistryImplementor registry) {
 		if ( !isMultiTenancyEnabled( registry ) ) {
 			return new ConnectionProviderJdbcConnectionAccess( registry.requireService( ConnectionProvider.class ) );
 		}
 		else {
-			final MultiTenantConnectionProvider<?> multiTenantConnectionProvider =
-					registry.getService( MultiTenantConnectionProvider.class );
-			return new MultiTenantConnectionProviderJdbcConnectionAccess( multiTenantConnectionProvider );
-		}
-	}
-
-	public static JdbcConnectionAccess buildBootstrapJdbcConnectionAccess(ServiceRegistryImplementor registry) {
-		if ( !isMultiTenancyEnabled( registry ) ) {
-			return new ConnectionProviderJdbcConnectionAccess( registry.requireService( ConnectionProvider.class ) );
-		}
-		else {
-			final MultiTenantConnectionProvider<?> multiTenantConnectionProvider =
-					registry.getService( MultiTenantConnectionProvider.class );
+			final var multiTenantConnectionProvider = registry.getService( MultiTenantConnectionProvider.class );
 			return new MultiTenantConnectionProviderJdbcConnectionAccess( multiTenantConnectionProvider );
 		}
 	}

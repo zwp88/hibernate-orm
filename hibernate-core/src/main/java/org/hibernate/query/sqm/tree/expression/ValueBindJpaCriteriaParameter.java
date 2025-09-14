@@ -55,33 +55,39 @@ public class ValueBindJpaCriteriaParameter<T> extends JpaCriteriaParameter<T> {
 	}
 
 	@Override
-	// TODO: fix this
 	public int compareTo(SqmParameter<T> parameter) {
-		return this == parameter ? 0 : 1;
+		return Integer.compare( hashCode(), parameter.hashCode() );
 	}
 
-	// this is not really a parameter, it's really a literal value
-	// so use value equality based on its value
-
 	@Override
-	public boolean equals(Object object) {
-		return object instanceof ValueBindJpaCriteriaParameter<?> that
-			&& Objects.equals( this.value, that.value );
-//			&& getJavaTypeDescriptor().areEqual( this.value, (T) that.value );
+	public boolean equals(Object obj) {
+		if ( this == obj ) {
+			return true;
+		}
+		if ( obj instanceof ValueBindJpaCriteriaParameter<?> that ) {
+			if ( value == null ) {
+				return that.value == null && Objects.equals( getNodeType(), that.getNodeType() );
+			}
+			final var javaType = getJavaTypeDescriptor();
+			if ( that.value != null ) {
+				if ( javaType != null ) {
+					//noinspection unchecked
+					return javaType.equals( that.getJavaTypeDescriptor() ) && javaType.areEqual( value, (T) that.value );
+				}
+				else {
+					return that.getJavaTypeDescriptor() == null && value.equals( that.value );
+				}
+			}
+		}
+		return false;
 	}
 
 	@Override
 	public int hashCode() {
-		return value == null ? 0 : value.hashCode(); // getJavaTypeDescriptor().extractHashCode( value );
+		if ( value == null ) {
+			return 0;
+		}
+		final var javaType = getJavaTypeDescriptor();
+		return javaType == null ? value.hashCode() : javaType.extractHashCode( value );
 	}
-
-//	@Override
-//	public boolean equals(Object object) {
-//		return this == object;
-//	}
-//
-//	@Override
-//	public int hashCode() {
-//		return System.identityHashCode( this );
-//	}
 }

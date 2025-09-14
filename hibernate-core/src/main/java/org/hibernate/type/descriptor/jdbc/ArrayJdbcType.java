@@ -25,6 +25,7 @@ import org.hibernate.type.descriptor.java.BasicPluralJavaType;
 import org.hibernate.type.descriptor.java.ByteArrayJavaType;
 import org.hibernate.type.descriptor.java.ByteJavaType;
 import org.hibernate.type.descriptor.java.JavaType;
+import org.hibernate.type.descriptor.java.PrimitiveByteArrayJavaType;
 import org.hibernate.type.descriptor.jdbc.internal.JdbcLiteralFormatterArray;
 import org.hibernate.type.descriptor.sql.spi.DdlTypeRegistry;
 import org.hibernate.type.internal.BasicTypeImpl;
@@ -65,7 +66,7 @@ public class ArrayJdbcType implements JdbcType {
 			TypeConfiguration typeConfiguration) {
 		final JavaType<?> elementJavaType =
 				elementJdbcType.getJdbcRecommendedJavaTypeMapping( precision, scale, typeConfiguration );
-		final JavaType<?> javaType =
+		final var javaType =
 				typeConfiguration.getJavaTypeRegistry()
 						.resolveDescriptor( newInstance( elementJavaType.getJavaTypeClass(), 0 ).getClass() );
 		if ( javaType instanceof BasicPluralType<?, ?> ) {
@@ -81,9 +82,9 @@ public class ArrayJdbcType implements JdbcType {
 		}
 	}
 
-	private static JavaType<?> elementJavaType(JavaType<?> javaTypeDescriptor) {
-		if ( javaTypeDescriptor instanceof ByteArrayJavaType ) {
-			// Special handling needed for Byte[], because that would conflict with the VARBINARY mapping
+	protected static JavaType<?> elementJavaType(JavaType<?> javaTypeDescriptor) {
+		if ( javaTypeDescriptor instanceof ByteArrayJavaType || javaTypeDescriptor instanceof PrimitiveByteArrayJavaType ) {
+			// Special handling needed for Byte[] and byte[], because that would conflict with the VARBINARY mapping
 			return ByteJavaType.INSTANCE;
 		}
 		else if ( javaTypeDescriptor instanceof BasicPluralJavaType<?> basicPluralJavaType ) {
@@ -136,7 +137,7 @@ public class ArrayJdbcType implements JdbcType {
 
 	protected <T> Object[] getArray(BasicBinder<?> binder, ValueBinder<T> elementBinder, T value, WrapperOptions options)
 			throws SQLException {
-		final JdbcType elementJdbcType = ( (ArrayJdbcType) binder.getJdbcType() ).getElementJdbcType();
+		final var elementJdbcType = ( (ArrayJdbcType) binder.getJdbcType() ).getElementJdbcType();
 		//noinspection unchecked
 		final JavaType<T> javaType = (JavaType<T>) binder.getJavaType();
 		if ( elementJdbcType instanceof AggregateJdbcType ) {
@@ -150,8 +151,8 @@ public class ArrayJdbcType implements JdbcType {
 			return objects;
 		}
 		else {
-			final TypeConfiguration typeConfiguration = options.getTypeConfiguration();
-			final JdbcType underlyingJdbcType =
+			final var typeConfiguration = options.getTypeConfiguration();
+			final var underlyingJdbcType =
 					typeConfiguration.getJdbcTypeRegistry()
 							.getDescriptor( elementJdbcType.getDefaultSqlTypeCode() );
 			final Class<?> preferredJavaTypeClass = elementJdbcType.getPreferredJavaTypeClass( options );

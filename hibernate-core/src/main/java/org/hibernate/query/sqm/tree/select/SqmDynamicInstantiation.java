@@ -16,7 +16,6 @@ import org.hibernate.query.criteria.JpaCompoundSelection;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.SqmBindableType;
-import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.domain.SqmDomainType;
@@ -45,7 +44,7 @@ public class SqmDynamicInstantiation<T>
 		SqmAliasedExpressionContainer<SqmDynamicInstantiationArgument<?>>,
 		JpaCompoundSelection<T> {
 
-	private static final Logger log = Logger.getLogger( SqmDynamicInstantiation.class );
+	private static final Logger LOG = Logger.getLogger( SqmDynamicInstantiation.class );
 
 	public static <R> SqmDynamicInstantiation<R> forClassInstantiation(
 			JavaType<R> targetJavaType,
@@ -62,7 +61,8 @@ public class SqmDynamicInstantiation<T>
 			NodeBuilder nodeBuilder) {
 		return new SqmDynamicInstantiation<>(
 				new DynamicInstantiationTargetImpl<>( CLASS,
-						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry().getDescriptor( targetJavaType ) ),
+						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry()
+								.resolveDescriptor( targetJavaType ) ),
 				arguments,
 				nodeBuilder
 		);
@@ -81,7 +81,8 @@ public class SqmDynamicInstantiation<T>
 			List<? extends SqmSelectableNode<?>> arguments, NodeBuilder nodeBuilder) {
 		return new SqmDynamicInstantiation<>(
 				new DynamicInstantiationTargetImpl<>( MAP,
-						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry().getDescriptor( Map.class ) ),
+						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry()
+								.getDescriptor( Map.class ) ),
 				arguments,
 				nodeBuilder
 		);
@@ -100,7 +101,8 @@ public class SqmDynamicInstantiation<T>
 			List<? extends SqmSelectableNode<?>> arguments, NodeBuilder nodeBuilder) {
 		return new SqmDynamicInstantiation<>(
 				new DynamicInstantiationTargetImpl<>( LIST,
-						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry().getDescriptor( List.class ) ),
+						nodeBuilder.getTypeConfiguration().getJavaTypeRegistry()
+								.getDescriptor( List.class ) ),
 				arguments,
 				nodeBuilder
 		);
@@ -122,10 +124,8 @@ public class SqmDynamicInstantiation<T>
 			NodeBuilder nodeBuilder) {
 		super( instantiationTarget.getSqmType(), nodeBuilder );
 		this.instantiationTarget = instantiationTarget;
-		for ( SqmSelectableNode<?> argument : arguments ) {
-			final SqmDynamicInstantiationArgument<?> arg =
-					new SqmDynamicInstantiationArgument<>( argument, argument.getAlias(), nodeBuilder() );
-			addArgument( arg );
+		for ( var argument : arguments ) {
+			addArgument( new SqmDynamicInstantiationArgument<>( argument, argument.getAlias(), nodeBuilder() ) );
 		}
 	}
 
@@ -146,7 +146,7 @@ public class SqmDynamicInstantiation<T>
 				// where Class objects not available during build
 				return true;
 			}
-			final List<Class<?>> argTypes = argumentTypes();
+			final var argTypes = argumentTypes();
 			if ( isFullyAliased() ) {
 				final List<String> aliases =
 						getArguments().stream()
@@ -168,7 +168,7 @@ public class SqmDynamicInstantiation<T>
 	private List<Class<?>> argumentTypes() {
 		return getArguments().stream()
 				.map( arg -> {
-					final SqmExpressible<?> expressible = arg.getExpressible();
+					final var expressible = arg.getExpressible();
 					return expressible != null && expressible.getExpressibleJavaType() != null ?
 							expressible.getExpressibleJavaType().getJavaTypeClass() :
 							Void.class;
@@ -191,7 +191,7 @@ public class SqmDynamicInstantiation<T>
 		}
 		else {
 			arguments = new ArrayList<>( this.arguments.size() );
-			for ( SqmDynamicInstantiationArgument<?> argument : this.arguments ) {
+			for ( var argument : this.arguments ) {
 				arguments.add( argument.copy( context ) );
 			}
 		}
@@ -229,8 +229,8 @@ public class SqmDynamicInstantiation<T>
 	public void addArgument(SqmDynamicInstantiationArgument<?> argument) {
 		if ( instantiationTarget.getNature() == LIST ) {
 			// really should not have an alias...
-			if ( argument.getAlias() != null && log.isDebugEnabled() ) {
-				log.debugf(
+			if ( argument.getAlias() != null && LOG.isDebugEnabled() ) {
+				LOG.debugf(
 						"Argument [%s] for dynamic List instantiation declared an 'injection alias' [%s] " +
 								"but such aliases are ignored for dynamic List instantiations",
 						argument.getSelectableNode().asLoggableText(),
@@ -241,7 +241,7 @@ public class SqmDynamicInstantiation<T>
 		else if ( instantiationTarget.getNature() == MAP ) {
 			// must(?) have an alias...
 			if ( argument.getAlias() == null ) {
-				log.warnf(
+				LOG.warnf(
 						"Argument [%s] for dynamic Map instantiation did not declare an 'injection alias' [%s] " +
 								"but such aliases are needed for dynamic Map instantiations; " +
 								"will likely cause problems later translating sqm",
@@ -259,8 +259,7 @@ public class SqmDynamicInstantiation<T>
 
 	@Override
 	public SqmDynamicInstantiationArgument<?> add(SqmExpression<?> expression, String alias) {
-		final SqmDynamicInstantiationArgument<?> argument =
-				new SqmDynamicInstantiationArgument<>( expression, alias, nodeBuilder() );
+		final var argument = new SqmDynamicInstantiationArgument<>( expression, alias, nodeBuilder() );
 		addArgument( argument );
 		return argument;
 	}

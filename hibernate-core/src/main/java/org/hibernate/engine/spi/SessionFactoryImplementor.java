@@ -17,6 +17,7 @@ import org.hibernate.boot.registry.classloading.spi.ClassLoaderService;
 import org.hibernate.boot.spi.SessionFactoryOptions;
 import org.hibernate.cache.spi.CacheImplementor;
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
+import org.hibernate.engine.creation.spi.SessionBuilderImplementor;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.profile.FetchProfile;
 import org.hibernate.event.service.spi.EventListenerRegistry;
@@ -184,6 +185,15 @@ public interface SessionFactoryImplementor extends SessionFactory {
 	 */
 	//todo make a Service ?
 	CurrentTenantIdentifierResolver<Object> getCurrentTenantIdentifierResolver();
+
+	/**
+	 * Object the current tenant identifier using the
+	 * {@linkplain #getCurrentTenantIdentifierResolver() resolver}.
+	 *
+	 * @since 7.2
+	 */
+	@Incubating
+	Object resolveTenantIdentifier();
 
 	/**
 	 * The {@link JavaType} to use for a tenant identifier.

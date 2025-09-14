@@ -444,6 +444,8 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 *
 	 * @param readOnly {@code true}, the default for loaded entities/proxies is read-only;
 	 *				 {@code false}, the default for loaded entities/proxies is modifiable
+	 * @throws SessionException if the session was originally
+	 *         {@linkplain SessionBuilder#readOnly created in read-only mode}
 	 */
 	void setDefaultReadOnly(boolean readOnly);
 
@@ -1412,14 +1414,6 @@ public interface Session extends SharedSessionContract, EntityManager {
 	 */
 	@Incubating
 	<E> Collection<E> getManagedEntities(EntityType<E> entityType);
-
-	/**
-	 * Obtain a {@link Session} builder with the ability to copy certain
-	 * information from this session.
-	 *
-	 * @return the session builder
-	 */
-	SharedSessionBuilder sessionWithOptions();
 
 	/**
 	 * Add one or more listeners to the Session

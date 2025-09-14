@@ -46,6 +46,7 @@ import static org.hibernate.spi.NavigablePath.IDENTIFIER_MAPPER_PROPERTY;
  */
 @Internal
 public final class IdentifierGeneratorHelper {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( IdentifierGeneratorHelper.class );
 
 	/**

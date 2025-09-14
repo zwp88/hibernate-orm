@@ -706,6 +706,8 @@ public class PostgreSQLDialect extends Dialect {
 		functionFactory.hex( "encode(?1, 'hex')" );
 		functionFactory.sha( "sha256(?1)" );
 		functionFactory.md5( "decode(md5(?1), 'hex')" );
+
+		functionFactory.regexpLike_postgresql( getVersion().isSameOrAfter( 15 ) );
 	}
 
 	@Override
@@ -902,6 +904,8 @@ public class PostgreSQLDialect extends Dialect {
 
 	@Override
 	public boolean useInputStreamToInsertBlob() {
+		// PG-JDBC treats setBinaryStream()/setCharacterStream() calls like bytea/varchar, which are not LOBs,
+		// so disable stream bindings for this dialect completely
 		return false;
 	}
 
@@ -1502,7 +1506,7 @@ public class PostgreSQLDialect extends Dialect {
 						ObjectNullAsBinaryTypeJdbcType.INSTANCE,
 						typeContributions.getTypeConfiguration()
 								.getJavaTypeRegistry()
-								.getDescriptor( Object.class )
+								.resolveDescriptor( Object.class )
 				)
 		);
 

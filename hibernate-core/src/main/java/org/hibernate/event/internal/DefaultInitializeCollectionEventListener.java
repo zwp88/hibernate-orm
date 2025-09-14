@@ -23,6 +23,7 @@ import static org.hibernate.pretty.MessageHelper.collectionInfoString;
  * @author Gavin King
  */
 public class DefaultInitializeCollectionEventListener implements InitializeCollectionEventListener {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultInitializeCollectionEventListener.class );
 
 	/**

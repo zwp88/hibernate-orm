@@ -29,6 +29,7 @@ import static org.hibernate.pretty.MessageHelper.collectionInfoString;
  * @author Gavin King
  */
 public final class CollectionEntry implements Serializable {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( CollectionEntry.class );
 
 	//ATTRIBUTES MAINTAINED BETWEEN FLUSH CYCLES

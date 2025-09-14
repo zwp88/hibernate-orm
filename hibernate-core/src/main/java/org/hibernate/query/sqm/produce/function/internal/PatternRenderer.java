@@ -31,6 +31,7 @@ import static org.hibernate.query.sqm.function.AbstractSqmSelfRenderingFunctionD
  * @author Steve Ebersole
  */
 public class PatternRenderer {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( PatternRenderer.class );
 
 	private final String[] chunks;

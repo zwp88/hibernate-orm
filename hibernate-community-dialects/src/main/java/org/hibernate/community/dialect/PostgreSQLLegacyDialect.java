@@ -768,6 +768,8 @@ public class PostgreSQLLegacyDialect extends Dialect {
 
 		functionFactory.unnest_postgresql( getVersion().isSameOrAfter( 17 ) );
 		functionFactory.generateSeries( null, "ordinality", false );
+
+		functionFactory.regexpLike_postgresql( getVersion().isSameOrAfter( 15 ) );
 	}
 
 	@Override
@@ -944,6 +946,8 @@ public class PostgreSQLLegacyDialect extends Dialect {
 
 	@Override
 	public boolean useInputStreamToInsertBlob() {
+		// PG-JDBC treats setBinaryStream()/setCharacterStream() calls like bytea/varchar, which are not LOBs,
+		// so disable stream bindings for this dialect completely
 		return false;
 	}
 

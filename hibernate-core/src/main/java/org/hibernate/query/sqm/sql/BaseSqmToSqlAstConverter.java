@@ -107,6 +107,7 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.DiscriminatorSqmPath;
 import org.hibernate.query.sqm.DynamicInstantiationNature;
 import org.hibernate.query.sqm.InterpretationException;
+import org.hibernate.query.sqm.SqmBindableType;
 import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.SqmQuerySource;
@@ -391,6 +392,7 @@ import org.hibernate.sql.results.graph.instantiation.internal.DynamicInstantiati
 import org.hibernate.sql.results.graph.internal.ImmutableFetchList;
 import org.hibernate.sql.results.internal.SqlSelectionImpl;
 import org.hibernate.sql.results.internal.StandardEntityGraphTraversalStateImpl;
+import org.hibernate.type.BasicPluralType;
 import org.hibernate.type.BasicType;
 import org.hibernate.type.BindableType;
 import org.hibernate.type.BottomType;
@@ -464,7 +466,7 @@ import static org.hibernate.usertype.internal.AbstractTimeZoneStorageCompositeUs
 public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends BaseSemanticQueryWalker
 		implements SqmTranslator<T>, DomainResultCreationState, JdbcTypeIndicators {
 
-//	private static final Logger log = Logger.getLogger( BaseSqmToSqlAstConverter.class );
+//	private static final Logger LOG = Logger.getLogger( BaseSqmToSqlAstConverter.class );
 
 	private final SqlAstCreationContext creationContext;
 	private final boolean jpaQueryComplianceEnabled;
@@ -1648,7 +1650,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public DynamicInstantiation<?> visitDynamicInstantiation(SqmDynamicInstantiation<?> sqmDynamicInstantiation) {
 		final SqmDynamicInstantiationTarget<?> instantiationTarget = sqmDynamicInstantiation.getInstantiationTarget();
 		final DynamicInstantiationNature instantiationNature = instantiationTarget.getNature();
-		final JavaType<Object> targetTypeDescriptor = interpretInstantiationTarget( instantiationTarget );
+		final JavaType<?> targetTypeDescriptor = interpretInstantiationTarget( instantiationTarget );
 
 		final DynamicInstantiation<?> dynamicInstantiation =
 				new DynamicInstantiation<>( instantiationNature, targetTypeDescriptor );
@@ -1667,10 +1669,8 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		return dynamicInstantiation;
 	}
 
-	private <X> JavaType<X> interpretInstantiationTarget(SqmDynamicInstantiationTarget<?> instantiationTarget) {
-		return getCreationContext().getMappingMetamodel()
-				.getTypeConfiguration()
-				.getJavaTypeRegistry()
+	private <X> JavaType<X> interpretInstantiationTarget(SqmDynamicInstantiationTarget<X> instantiationTarget) {
+		return getCreationContext().getTypeConfiguration().getJavaTypeRegistry()
 				.getDescriptor( switch ( instantiationTarget.getNature() ) {
 					case LIST -> List.class;
 					case MAP -> Map.class;
@@ -2592,10 +2592,10 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	}
 
 	protected void consumeFromClauseCorrelatedRoot(SqmRoot<?> sqmRoot) {
-//		log.tracef( "Resolving SqmRoot [%s] to TableGroup", sqmRoot );
+//		LOG.tracef( "Resolving SqmRoot [%s] to TableGroup", sqmRoot );
 		final FromClauseIndex fromClauseIndex = getFromClauseIndex();
 //		if ( fromClauseIndex.isResolved( sqmRoot ) ) {
-//			log.tracef( "Already resolved SqmRoot [%s] to TableGroup", sqmRoot );
+//			LOG.tracef( "Already resolved SqmRoot [%s] to TableGroup", sqmRoot );
 //		}
 		final TableGroup tableGroup;
 		if ( !sqmRoot.isCorrelated() ) {
@@ -2683,7 +2683,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 			// Any table group joins added to the correlated table group are added to the query spec
 			// as roots anyway, so nothing to worry about
 
-//			log.tracef( "Resolved SqmRoot [%s] to correlated TableGroup [%s]", sqmRoot, tableGroup );
+//			LOG.tracef( "Resolved SqmRoot [%s] to correlated TableGroup [%s]", sqmRoot, tableGroup );
 			consumeExplicitJoins( from, tableGroup );
 			return;
 		}
@@ -2752,7 +2752,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 			}
 		}
 
-//		log.tracef( "Resolved SqmRoot [%s] to new TableGroup [%s]", sqmRoot, tableGroup );
+//		LOG.tracef( "Resolved SqmRoot [%s] to new TableGroup [%s]", sqmRoot, tableGroup );
 
 		fromClauseIndex.register( sqmRoot, tableGroup );
 		currentQuerySpec.getFromClause().addRoot( tableGroup );
@@ -2761,10 +2761,10 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	}
 
 	protected void consumeFromClauseRoot(SqmRoot<?> sqmRoot) {
-//		log.tracef( "Resolving SqmRoot [%s] to TableGroup", sqmRoot );
+//		LOG.tracef( "Resolving SqmRoot [%s] to TableGroup", sqmRoot );
 		final FromClauseIndex fromClauseIndex = getFromClauseIndex();
 //		if ( fromClauseIndex.isResolved( sqmRoot ) ) {
-//			log.tracef( "Already resolved SqmRoot [%s] to TableGroup", sqmRoot );
+//			LOG.tracef( "Already resolved SqmRoot [%s] to TableGroup", sqmRoot );
 //		}
 		if ( sqmRoot.isCorrelated() ) {
 			return;
@@ -2842,7 +2842,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 			);
 		}
 
-//		log.tracef( "Resolved SqmRoot [%s] to new TableGroup [%s]", sqmRoot, tableGroup );
+//		LOG.tracef( "Resolved SqmRoot [%s] to new TableGroup [%s]", sqmRoot, tableGroup );
 
 		registerSqmFromTableGroup( sqmRoot, tableGroup );
 		currentQueryNodeProcessingState.getFromClause().addRoot( tableGroup );
@@ -2926,8 +2926,8 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 			consumeExplicitJoins( sqmRoot, tableGroup );
 		}
 		else {
-//			if ( log.isTraceEnabled() ) {
-//				log.tracef( "Visiting explicit joins for '%s'", sqmRoot.getNavigablePath() );
+//			if ( LOG.isTraceEnabled() ) {
+//				LOG.tracef( "Visiting explicit joins for '%s'", sqmRoot.getNavigablePath() );
 //			}
 			TableGroup lastTableGroup = tableGroup;
 			for ( SqmJoin<?, ?> join : sqmRoot.getOrderedJoins() ) {
@@ -3109,7 +3109,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		}
 		else {
 			persister = creationContext.getMappingMetamodel().findEntityDescriptor( treatTargetTypeName );
-			if ( persister == null || !persister.getEntityMetamodel().isPolymorphic() ) {
+			if ( persister == null || !persister.isPolymorphic() ) {
 				return;
 			}
 		}
@@ -3244,8 +3244,8 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	}
 
 	protected void consumeExplicitJoins(SqmFrom<?, ?> sqmFrom, TableGroup lhsTableGroup) {
-//		if ( log.isTraceEnabled() ) {
-//			log.tracef( "Visiting explicit joins for '%s'", sqmFrom.getNavigablePath() );
+//		if ( LOG.isTraceEnabled() ) {
+//			LOG.tracef( "Visiting explicit joins for '%s'", sqmFrom.getNavigablePath() );
 //		}
 		sqmFrom.visitSqmJoins(
 				sqmJoin -> {
@@ -4002,7 +4002,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitRootPath(SqmRoot<?> sqmRoot) {
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( sqmRoot.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
+//			LOG.tracef( "SqmRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
 			return visitTableGroup( resolved, sqmRoot );
 		}
 
@@ -4013,7 +4013,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitRootDerived(SqmDerivedRoot<?> sqmRoot) {
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( sqmRoot.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmDerivedRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
+//			LOG.tracef( "SqmDerivedRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
 			return visitTableGroup( resolved, sqmRoot );
 		}
 
@@ -4024,7 +4024,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitRootFunction(SqmFunctionRoot<?> sqmRoot) {
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( sqmRoot.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmFunctionRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
+//			LOG.tracef( "SqmFunctionRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
 			return visitTableGroup( resolved, sqmRoot );
 		}
 
@@ -4035,7 +4035,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitRootCte(SqmCteRoot<?> sqmRoot) {
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( sqmRoot.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmCteRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
+//			LOG.tracef( "SqmCteRoot [%s] resolved to existing TableGroup [%s]", sqmRoot, resolved );
 			return visitTableGroup( resolved, sqmRoot );
 		}
 
@@ -4046,7 +4046,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitQualifiedAttributeJoin(SqmAttributeJoin<?, ?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmAttributeJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmAttributeJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4057,7 +4057,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitQualifiedDerivedJoin(SqmDerivedJoin<?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmDerivedJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmDerivedJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4068,7 +4068,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitQualifiedFunctionJoin(SqmFunctionJoin<?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmFunctionJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmFunctionJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4079,7 +4079,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitQualifiedCteJoin(SqmCteJoin<?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmCteJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmCteJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4090,7 +4090,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitCrossJoin(SqmCrossJoin<?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmCrossJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmCrossJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4101,7 +4101,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Object visitPluralPartJoin(SqmPluralPartJoin<?, ?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmPluralPartJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmPluralPartJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4112,7 +4112,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitQualifiedEntityJoin(SqmEntityJoin<?,?> sqmJoin) {
 		final TableGroup existing = getFromClauseAccess().findTableGroup( sqmJoin.getNavigablePath() );
 		if ( existing != null ) {
-//			log.tracef( "SqmEntityJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
+//			LOG.tracef( "SqmEntityJoin [%s] resolved to existing TableGroup [%s]", sqmJoin, existing );
 			return visitTableGroup( existing, sqmJoin );
 		}
 
@@ -4615,7 +4615,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	public Expression visitCorrelation(SqmCorrelation<?, ?> correlation) {
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( correlation.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmCorrelation [%s] resolved to existing TableGroup [%s]", correlation, resolved );
+//			LOG.tracef( "SqmCorrelation [%s] resolved to existing TableGroup [%s]", correlation, resolved );
 			return visitTableGroup( resolved, correlation );
 		}
 		throw new InterpretationException( "SqmCorrelation not yet resolved to TableGroup" );
@@ -4626,7 +4626,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		prepareReusablePath( sqmTreatedPath, () -> null );
 		final TableGroup resolved = getFromClauseAccess().findTableGroup( sqmTreatedPath.getNavigablePath() );
 		if ( resolved != null ) {
-//			log.tracef( "SqmTreatedPath [%s] resolved to existing TableGroup [%s]", sqmTreatedPath, resolved );
+//			LOG.tracef( "SqmTreatedPath [%s] resolved to existing TableGroup [%s]", sqmTreatedPath, resolved );
 			return visitTableGroup( resolved, sqmTreatedPath );
 		}
 
@@ -4766,14 +4766,15 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		);
 		registerProjectionUsageFromDescriptor( tableGroup, valueDescriptor );
 
-		return new DomainResultProducer<Map.Entry<Object, Object>>() {
+		//noinspection rawtypes
+		return new DomainResultProducer<Map.Entry>() {
 			@Override
-			public DomainResult<Map.Entry<Object, Object>> createDomainResult(
+			public DomainResult<Map.Entry> createDomainResult(
 					String resultVariable,
 					DomainResultCreationState creationState) {
-				final JavaType<Map.Entry<Object, Object>> mapEntryDescriptor = getTypeConfiguration()
-						.getJavaTypeRegistry()
-						.resolveDescriptor( Map.Entry.class );
+				final var mapEntryDescriptor =
+						getTypeConfiguration().getJavaTypeRegistry()
+								.resolveDescriptor( Map.Entry.class );
 				return new SqmMapEntryResult<>( indexResult, valueResult, resultVariable, mapEntryDescriptor );
 			}
 
@@ -5432,7 +5433,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 
 	private Predicate createTreatTypeRestriction(SqmPath<?> lhs, EntityDomainType<?> treatTarget) {
 		final EntityPersister entityDescriptor = domainModel.findEntityDescriptor( treatTarget.getHibernateEntityName() );
-		if ( entityDescriptor.getEntityMetamodel().isPolymorphic() && lhs.getNodeType() != treatTarget ) {
+		if ( entityDescriptor.isPolymorphic() && lhs.getNodeType() != treatTarget ) {
 			final Set<String> subclassEntityNames = entityDescriptor.getSubclassEntityNames();
 			return createTreatTypeRestriction( lhs, subclassEntityNames );
 		}
@@ -5918,7 +5919,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		}
 
 		if ( sqmExpression instanceof SqmPath ) {
-//			log.tracef( "Determining mapping-model type for SqmPath: %s ", sqmExpression );
+//			LOG.tracef( "Determining mapping-model type for SqmPath: %s ", sqmExpression );
 			final MappingModelExpressible<?> mappingModelExpressible =
 					resolveMappingModelExpressible( sqmExpression, domainModel, fromClauseIndex::findTableGroup );
 			if ( mappingModelExpressible != null ) {
@@ -5985,13 +5986,13 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 				return (MappingModelExpressible<?>) getTypeConfiguration().resolveArithmeticType(
 						// These casts should be safe, since the only JdbcMapping is BasicType
 						// which also implements SqmExpressible
-						lhs == null ? null : (SqmExpressible<?>) lhs.getSingleJdbcMapping(),
-						rhs == null ? null : (SqmExpressible<?>) rhs.getSingleJdbcMapping()
+						lhs == null ? null : (SqmBindableType<?>) lhs.getSingleJdbcMapping(),
+						rhs == null ? null : (SqmBindableType<?>) rhs.getSingleJdbcMapping()
 				);
 			}
 		}
 
-//		log.tracef( "Determining mapping-model type for generalized SqmExpression: %s", sqmExpression );
+//		LOG.tracef( "Determining mapping-model type for generalized SqmExpression: %s", sqmExpression );
 		final SqmExpressible<?> nodeType = sqmExpression.getNodeType();
 		if ( nodeType == null ) {
 			// We can't determine the type of the expression
@@ -6046,7 +6047,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 	}
 
 	protected MappingModelExpressible<?> determineValueMapping(SqmParameter<?> sqmParameter) {
-//		log.tracef( "Determining mapping-model type for SqmParameter: %s", sqmParameter );
+//		LOG.tracef( "Determining mapping-model type for SqmParameter: %s", sqmParameter );
 		final QueryParameterImplementor<?> queryParameter = domainParameterXref.getQueryParameter( sqmParameter );
 		final QueryParameterBinding<?> binding = domainParameterBindings.getBinding( queryParameter );
 		final boolean bindingTypeExplicit = binding.getExplicitTemporalPrecision() != null;
@@ -6263,6 +6264,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 			return new SqlTypedMappingImpl(
 					null,
 					null,
+					null,
 					precision,
 					0,
 					null,
@@ -6271,6 +6273,7 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		}
 		else if ( bindValue instanceof BigDecimal bigDecimal ) {
 			return new SqlTypedMappingImpl(
+					null,
 					null,
 					null,
 					bigDecimal.precision(),
@@ -6484,12 +6487,29 @@ public abstract class BaseSqmToSqlAstConverter<T extends Statement> extends Base
 		if ( targetType instanceof BasicType basicType ) {
 			targetType = resolveSqlTypeIndicators( this, basicType, target.getNodeJavaType() );
 		}
-		return new CastTarget(
-				targetType.getJdbcMapping(),
-				target.getLength(),
-				target.getPrecision(),
-				target.getScale()
-		);
+		if ( targetType instanceof BasicPluralType<?, ?>
+			&& target.getLength() != null
+			&& target.getScale() == null ) {
+			// Assume that the given length is the array length
+			return new CastTarget(
+					targetType.getJdbcMapping(),
+					null,
+					null,
+					target.getLength().intValue(),
+					null,
+					null
+			);
+		}
+		else {
+			return new CastTarget(
+					targetType.getJdbcMapping(),
+					null,
+					target.getLength(),
+					null,
+					target.getPrecision(),
+					target.getScale()
+			);
+		}
 	}
 
 	@Override

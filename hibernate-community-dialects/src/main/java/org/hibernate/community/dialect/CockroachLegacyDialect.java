@@ -548,6 +548,7 @@ public class CockroachLegacyDialect extends Dialect {
 				)
 		);
 		functionContributions.getFunctionRegistry().registerAlternateKey( "truncate", "trunc" );
+		functionFactory.regexpLike_postgresql( false );
 	}
 
 	@Override
@@ -1094,6 +1095,8 @@ public class CockroachLegacyDialect extends Dialect {
 
 	@Override
 	public boolean useInputStreamToInsertBlob() {
+		// PG-JDBC treats setBinaryStream()/setCharacterStream() calls like bytea/varchar, which are not LOBs,
+		// so disable stream bindings for this dialect completely
 		return false;
 	}
 

@@ -12,6 +12,7 @@ import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.community.dialect.sequence.LegacyDB2SequenceSupport;
 import org.hibernate.community.dialect.temptable.DB2LegacyLocalTemporaryTableStrategy;
+import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.DB2GetObjectExtractor;
 import org.hibernate.dialect.DatabaseVersion;
 import org.hibernate.dialect.Dialect;
@@ -183,13 +184,18 @@ public class DB2LegacyDialect extends Dialect {
 	}
 
 	public DB2LegacyDialect(DialectResolutionInfo info) {
-		super( info );
+		this( DB2Dialect.determinFullDatabaseVersion( info ) );
 		lockingSupport = buildLockingSupport();
 	}
 
 	public DB2LegacyDialect(DatabaseVersion version) {
 		super( version );
 		lockingSupport = buildLockingSupport();
+	}
+
+	@Override
+	public DatabaseVersion determineDatabaseVersion(DialectResolutionInfo info) {
+		return DB2Dialect.determinFullDatabaseVersion( info );
 	}
 
 	protected LockingSupport buildLockingSupport() {
@@ -504,6 +510,8 @@ public class DB2LegacyDialect extends Dialect {
 		if ( getDB2Version().isSameOrAfter( 11 ) ) {
 			functionFactory.sha( "hash(?1, 2)" );
 			functionFactory.md5( "hash(?1, 0)" );
+
+			functionFactory.regexpLike();
 		}
 	}
 
@@ -1095,7 +1103,16 @@ public class DB2LegacyDialect extends Dialect {
 	}
 
 	@Override
-	public boolean useInputStreamToInsertBlob() {
+	public boolean useConnectionToCreateLob() {
+		return false;
+	}
+
+	@Override
+	public boolean supportsNationalizedMethods() {
+		// See HHH-12753, HHH-18314, HHH-19201
+		// Old DB2 JDBC drivers do not support setNClob, setNCharcterStream or setNString.
+		// In more recent driver versions, some methods just delegate to the non-N variant, but others still fail.
+		// Ultimately, let's just avoid the N variant methods on DB2 altogether
 		return false;
 	}
 

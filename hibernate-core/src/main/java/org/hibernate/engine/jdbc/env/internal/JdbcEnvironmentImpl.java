@@ -14,7 +14,6 @@ import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.config.spi.ConfigurationService;
 import org.hibernate.engine.config.spi.StandardConverters;
 import org.hibernate.engine.jdbc.connections.spi.JdbcConnectionAccess;
-import org.hibernate.engine.jdbc.connections.spi.MultiTenantConnectionProvider;
 import org.hibernate.engine.jdbc.env.spi.ExtractedDatabaseMetaData;
 import org.hibernate.engine.jdbc.env.spi.IdentifierHelper;
 import org.hibernate.engine.jdbc.env.spi.IdentifierHelperBuilder;
@@ -27,7 +26,6 @@ import org.hibernate.exception.internal.SQLExceptionTypeDelegate;
 import org.hibernate.exception.internal.SQLStateConversionDelegate;
 import org.hibernate.exception.internal.StandardSQLExceptionConverter;
 import org.hibernate.exception.spi.SQLExceptionConversionDelegate;
-import org.hibernate.service.ServiceRegistry;
 import org.hibernate.service.spi.ServiceRegistryImplementor;
 import org.hibernate.sql.ast.SqlAstTranslatorFactory;
 import org.hibernate.sql.ast.spi.StandardSqlAstTranslatorFactory;
@@ -44,11 +42,7 @@ import static org.hibernate.engine.jdbc.env.internal.LobCreatorBuilderImpl.makeL
  * @author Steve Ebersole
  */
 public class JdbcEnvironmentImpl implements JdbcEnvironment {
-	private static final Logger log = Logger.getLogger( JdbcEnvironmentImpl.class );
-
-	public static boolean isMultiTenancyEnabled(ServiceRegistry serviceRegistry) {
-		return serviceRegistry.getService( MultiTenantConnectionProvider.class ) != null;
-	}
+	private static final Logger LOG = Logger.getLogger( JdbcEnvironmentImpl.class );
 
 	private final Dialect dialect;
 
@@ -126,7 +120,7 @@ public class JdbcEnvironmentImpl implements JdbcEnvironment {
 		}
 		catch (SQLException sqle) {
 			// should never ever happen
-			log.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
+			LOG.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
 		}
 		return builder.build();
 	}
@@ -216,7 +210,7 @@ public class JdbcEnvironmentImpl implements JdbcEnvironment {
 		}
 		catch (SQLException sqle) {
 			// should never ever happen
-			log.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
+			LOG.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
 		}
 		return identifierHelperBuilder.build();
 	}
@@ -317,7 +311,7 @@ public class JdbcEnvironmentImpl implements JdbcEnvironment {
 		}
 		catch (SQLException sqle) {
 			// should never ever happen
-			log.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
+			LOG.debug( "There was a problem accessing DatabaseMetaData in building the JdbcEnvironment", sqle );
 		}
 		return builder.build();
 	}

@@ -10,7 +10,6 @@ import org.hibernate.event.spi.EventSource;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.persister.collection.CollectionPersister;
-import org.hibernate.type.CollectionType;
 import org.hibernate.type.CompositeType;
 import org.hibernate.type.Type;
 
@@ -22,6 +21,7 @@ import static org.hibernate.pretty.MessageHelper.collectionInfoString;
  * @author Gavin King
  */
 public abstract class ReattachVisitor extends ProxyVisitor {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( ReattachVisitor.class );
 
 	private final Object ownerIdentifier;
@@ -63,7 +63,6 @@ public abstract class ReattachVisitor extends ProxyVisitor {
 		else {
 			super.processComponent( component, componentType );
 		}
-
 		return null;
 	}
 
@@ -95,7 +94,7 @@ public abstract class ReattachVisitor extends ProxyVisitor {
 	 * @return The value from the owner that identifies the grouping into the collection
 	 */
 	final Object extractCollectionKeyFromOwner(CollectionPersister role) {
-		final CollectionType collectionType = role.getCollectionType();
+		final var collectionType = role.getCollectionType();
 		if ( collectionType.useLHSPrimaryKey() ) {
 			return ownerIdentifier;
 		}

@@ -39,6 +39,7 @@ import org.hibernate.type.descriptor.java.UUIDJavaType;
  */
 @Deprecated(since = "6.0")
 public class UUIDGenerator implements IdentifierGenerator {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( UUIDGenerator.class );
 
 	public static final String UUID_GEN_STRATEGY = "uuid_gen_strategy";

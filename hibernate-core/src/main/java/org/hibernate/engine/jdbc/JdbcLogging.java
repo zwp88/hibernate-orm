@@ -8,8 +8,6 @@ import org.hibernate.ConnectionReleaseMode;
 import org.hibernate.Internal;
 import org.hibernate.internal.log.SubSystemLogging;
 
-import static org.hibernate.cfg.JdbcSettings.CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT;
-
 import org.jboss.logging.BasicLogger;
 import org.jboss.logging.Logger;
 import org.jboss.logging.annotations.Cause;
@@ -77,47 +75,6 @@ public interface JdbcLogging extends BasicLogger {
 	@LogMessage(level = DEBUG)
 	@Message(value = "Closing unreleased batch in JdbcCoordinator @%s", id = 100008)
 	void closingUnreleasedBatch(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Closing logical connection @%s", id = 100009)
-	void closingLogicalConnection(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Closed logical connection @%s", id = 100010)
-	void logicalConnectionClosed(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Skipping aggressive release of JDBC connection @%s from 'afterStatement' due to held resources", id = 100011)
-	void skipConnectionReleaseAfterStatementDueToResources(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Initiating release of JDBC connection @%s from 'afterStatement'", id = 100012)
-	void initiatingConnectionReleaseAfterStatement(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Initiating release of JDBC connection @%s from 'beforeTransactionCompletion'", id = 100013)
-	void initiatingConnectionReleaseBeforeTransactionCompletion(int hashCode);
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Initiating release of JDBC connection @%s from 'afterTransaction'", id = 100014)
-	void initiatingConnectionReleaseAfterTransaction(int hashCode);
-
-	@LogMessage(level = WARN)
-	@Message(value = "Error before releasing JDBC connection @%s", id = 100015)
-	void errorBeforeReleasingJdbcConnection(int hashCode, @Cause Throwable e);
-
-	@LogMessage(level = DEBUG)
-	@Message(
-			id = 100016,
-			value =
-					"'" + CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT + "' " +
-					"""
-					was enabled. This setting should only be enabled when JDBC Connections obtained by Hibernate \
-					from the ConnectionProvider have auto-commit disabled. Enabling this setting when connections \
-					have auto-commit enabled leads to execution of SQL operations outside of any JDBC transaction.\
-					"""
-	)
-	void connectionProviderDisablesAutoCommitEnabled();
 
 	@LogMessage(level = DEBUG)
 	@Message(value = """
@@ -195,4 +152,28 @@ public interface JdbcLogging extends BasicLogger {
 	@LogMessage(level = TRACE)
 	@Message(value = "Sequence value retrieved from database: %s", id = 100032)
 	void sequenceValueRetrievedFromDatabase(Number sequenceValue);
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Notifying resource-local transaction observers after begin", id = 100033)
+	void notifyingResourceLocalObserversAfterBegin();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Notifying resource-local transaction observers before completion", id = 100034)
+	void notifyingResourceLocalObserversBeforeCompletion();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "Notifying resource-local transaction observers after completion", id = 100035)
+	void notifyingResourceLocalObserversAfterCompletion();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "On commit, transaction was marked for rollback only, rolling back", id = 100036)
+	void onCommitMarkedRollbackOnlyRollingBack();
+
+	@LogMessage(level = TRACE)
+	@Message(value = "JDBC transaction marked for rollback only (exception provided for stack trace)", id = 100037)
+	void jdbcTransactionMarkedForRollbackOnly(@Cause Throwable stackTraceHolder);
+
+	@LogMessage(level = DEBUG)
+	@Message(value = "Encountered failure rolling back failed commit", id = 100038)
+	void encounteredFailureRollingBackFailedCommit(@Cause Throwable cause);
 }

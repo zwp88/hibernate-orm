@@ -46,6 +46,7 @@ import static org.hibernate.pretty.MessageHelper.infoString;
  * @see CascadingAction
  */
 public final class Cascade {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( Cascade.class );
 
 	private Cascade() {
@@ -665,7 +666,7 @@ public final class Cascade {
 
 	private static <T> boolean cascadeDeleteEnabled(CascadingAction<T> action, EntityPersister persister, int i) {
 		return action.directionAffectedByCascadeDelete() == ForeignKeyDirection.TO_PARENT
-			&& persister.getEntityMetamodel().getPropertyOnDeleteActions()[i] == OnDeleteAction.CASCADE;
+			&& persister.getPropertyOnDeleteActions()[i] == OnDeleteAction.CASCADE;
 	}
 
 	private static <T> boolean cascadeDeleteEnabled(CascadingAction<T> action, CompositeType componentType, int i) {

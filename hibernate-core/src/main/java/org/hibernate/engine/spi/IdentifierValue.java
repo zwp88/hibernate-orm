@@ -21,6 +21,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * @author Gavin King
  */
 public class IdentifierValue implements UnsavedValueStrategy {
+
 	private static final Logger LOG = CoreLogging.logger( IdentifierValue.class );
 
 	private final @Nullable Object value;

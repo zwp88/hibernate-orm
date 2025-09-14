@@ -27,8 +27,6 @@ import org.hibernate.engine.spi.PersistenceContext;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.engine.spi.Status;
 import org.hibernate.engine.spi.TypedValue;
-import org.hibernate.internal.CoreLogging;
-import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.SessionFactoryRegistry;
 import org.hibernate.internal.util.MarkerObject;
 import org.hibernate.internal.util.collections.IdentitySet;
@@ -40,6 +38,7 @@ import org.hibernate.type.Type;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import static java.util.Collections.emptyList;
+import static org.hibernate.collection.internal.CollectionLogger.COLLECTION_LOGGER;
 import static org.hibernate.engine.internal.ForeignKeys.getEntityIdentifier;
 import static org.hibernate.engine.internal.ForeignKeys.getEntityIdentifierIfNotUnsaved;
 import static org.hibernate.engine.internal.ForeignKeys.isNotTransient;
@@ -56,7 +55,6 @@ import static org.hibernate.resource.transaction.spi.TransactionStatus.ROLLING_B
  * @author Gavin King
  */
 public abstract class AbstractPersistentCollection<E> implements Serializable, PersistentCollection<E> {
-	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( AbstractPersistentCollection.class );
 
 	private transient SharedSessionContractImplementor session;
 	private boolean isTempSession = false;
@@ -297,7 +295,7 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 					tempSession.close();
 				}
 				catch (Exception e) {
-					LOG.unableToCloseTemporarySession();
+					COLLECTION_LOGGER.unableToCloseTemporarySession();
 				}
 			}
 			else {
@@ -657,19 +655,21 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 	}
 
 	private void throwLazyInitializationException(String message) {
-		throwLazyInitializationException( role, message);
-	}
-
-	private static void throwLazyInitializationException(String role, String message) {
-		throw new LazyInitializationException(
-				String.format( "Cannot lazily initialize collection%s (%s)",
-						role == null ? "" : " of role '" + role + "'", message )
-		);
+		final var error = new StringBuilder( "Cannot lazily initialize collection" );
+		if ( role != null ) {
+			error.append( " of role '" ).append( role ).append( "'" );
+		}
+		if ( key != null ) {
+			error.append( " with key '" ).append( key ).append( "'" );
+		}
+		error.append( " (" ).append( message ).append( ")" );
+		throw new LazyInitializationException( error.toString() );
 	}
 
 	public static void checkPersister(PersistentCollection<?> collection, CollectionPersister persister) {
 		if ( !collection.wasInitialized() && persister == null ) {
-			throwLazyInitializationException( null, "collection is being removed" );
+			throw new LazyInitializationException( "Cannot lazily initialize collection"
+													+ " (collection is being removed)" );
 		}
 	}
 
@@ -703,7 +703,7 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 				if ( allowLoadOutsideTransaction
 						&& !initialized
 						&& session.getLoadQueryInfluencers().hasEnabledFilters() ) {
-					LOG.enabledFiltersWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
+					COLLECTION_LOGGER.enabledFiltersWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
 				}
 				session = null;
 			}
@@ -711,7 +711,7 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 		}
 		else {
 			if ( session != null ) {
-				LOG.logCannotUnsetUnexpectedSessionInCollection( unexpectedSessionStateMessage( currentSession ) );
+				COLLECTION_LOGGER.logCannotUnsetUnexpectedSessionInCollection( unexpectedSessionStateMessage( currentSession ) );
 			}
 			return false;
 		}
@@ -721,20 +721,20 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 		try {
 			if ( wasTransactionRolledBack() ) {
 				// It was due to a rollback.
-				if ( LOG.isDebugEnabled()) {
-					LOG.queuedOperationWhenDetachFromSessionOnRollback( collectionInfoString( getRole(), getKey() ) );
+				if ( COLLECTION_LOGGER.isDebugEnabled()) {
+					COLLECTION_LOGGER.queuedOperationWhenDetachFromSessionOnRollback( collectionInfoString( getRole(), getKey() ) );
 				}
 			}
 			else {
 				// We don't know why the collection is being detached.
 				// Just log the info.
-				LOG.queuedOperationWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
+				COLLECTION_LOGGER.queuedOperationWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
 			}
 		}
 		catch (Exception e) {
 			// We don't know why the collection is being detached.
 			// Just log the info.
-			LOG.queuedOperationWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
+			COLLECTION_LOGGER.queuedOperationWhenDetachFromSession( collectionInfoString( getRole(), getKey() ) );
 		}
 	}
 
@@ -769,11 +769,11 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 				);
 			}
 			else {
-				LOG.logUnexpectedSessionInCollectionNotConnected( message );
+				COLLECTION_LOGGER.logUnexpectedSessionInCollectionNotConnected( message );
 			}
 		}
 		if ( hasQueuedOperations() ) {
-			LOG.queuedOperationWhenAttachToSession( collectionInfoString( getRole(), getKey() ) );
+			COLLECTION_LOGGER.queuedOperationWhenAttachToSession( collectionInfoString( getRole(), getKey() ) );
 		}
 		this.session = session;
 		return true;
@@ -805,7 +805,7 @@ public abstract class AbstractPersistentCollection<E> implements Serializable, P
 			}
 		}
 		// only include the collection contents if debug logging
-		if ( LOG.isDebugEnabled() ) {
+		if ( COLLECTION_LOGGER.isDebugEnabled() ) {
 			final String collectionContents = wasInitialized() ? toString() : "<uninitialized>";
 			message.append( "\nCollection contents: [" ).append( collectionContents ).append( "]" );
 		}

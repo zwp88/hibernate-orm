@@ -7,12 +7,11 @@ package org.hibernate.id.enhanced;
 import org.hibernate.HibernateException;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.id.IntegralDataTypeHolder;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.sql.ast.tree.expression.Expression;
-import org.jboss.logging.Logger;
 
 import java.io.Serializable;
-import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -27,11 +26,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see PooledOptimizer
  */
 public class PooledLoOptimizer extends AbstractOptimizer {
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			PooledLoOptimizer.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( PooledLoOptimizer.class );
 
 	private static class GenerationState {
 		// last value read from db source

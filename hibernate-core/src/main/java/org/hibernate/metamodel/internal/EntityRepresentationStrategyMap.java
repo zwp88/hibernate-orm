@@ -28,6 +28,7 @@ import org.hibernate.type.descriptor.java.JavaType;
  * @author Steve Ebersole
  */
 public class EntityRepresentationStrategyMap implements EntityRepresentationStrategy {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( EntityRepresentationStrategyMap.class );
 
 	private final JavaType<Map<String,?>> mapJavaType;
@@ -38,12 +39,12 @@ public class EntityRepresentationStrategyMap implements EntityRepresentationStra
 	public EntityRepresentationStrategyMap(
 			PersistentClass bootType,
 			RuntimeModelCreationContext creationContext) {
-		this.mapJavaType = creationContext.getTypeConfiguration()
-				.getJavaTypeRegistry()
-				.getDescriptor( Map.class );
+		mapJavaType =
+				creationContext.getTypeConfiguration().getJavaTypeRegistry()
+						.getDescriptor( Map.class );
 
-		this.proxyFactory = createProxyFactory( bootType );
-		this.instantiator = new EntityInstantiatorDynamicMap( bootType );
+		proxyFactory = createProxyFactory( bootType );
+		instantiator = new EntityInstantiatorDynamicMap( bootType );
 
 		createProxyFactory( bootType );
 	}

@@ -42,6 +42,7 @@ import org.hibernate.type.SerializationException;
  * @since 1.0
  */
 public final class SerializationHelper {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( SerializationHelper.class );
 
 	private SerializationHelper() {

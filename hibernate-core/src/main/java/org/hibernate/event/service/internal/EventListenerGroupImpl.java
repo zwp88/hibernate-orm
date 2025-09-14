@@ -28,6 +28,7 @@ import org.hibernate.jpa.event.spi.CallbackRegistryConsumer;
 
 import org.jboss.logging.Logger;
 
+import static java.lang.System.arraycopy;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singleton;
@@ -41,7 +42,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
  */
 class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 
-	private static final Logger log = Logger.getLogger( EventListenerGroupImpl.class );
+	private static final Logger LOG = Logger.getLogger( EventListenerGroupImpl.class );
 
 	private static final DuplicationStrategy DEFAULT_DUPLICATION_STRATEGY =
 			new DuplicationStrategy() {
@@ -239,7 +240,7 @@ class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 			listenersWrite = createListenerArrayForWrite( size + 1 );
 
 			// first copy the existing listeners
-			System.arraycopy( listenersRead, 0, listenersWrite, 0, size );
+			arraycopy( listenersRead, 0, listenersWrite, 0, size );
 
 			// and then put the new one after them
 			listenersWrite[size] = listener;
@@ -279,7 +280,7 @@ class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 			listenersWrite[0] = listener;
 
 			// and copy the rest after it
-			System.arraycopy( listenersRead, 0, listenersWrite, 1, size );
+			arraycopy( listenersRead, 0, listenersWrite, 1, size );
 		}
 		setListeners( listenersWrite );
 	}
@@ -293,9 +294,9 @@ class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 		int size = listenersRead.length;
 
 		final T[] listenersWrite = createListenerArrayForWrite( size );
-		System.arraycopy( listenersRead, 0, listenersWrite, 0, size );
+		arraycopy( listenersRead, 0, listenersWrite, 0, size );
 
-		final boolean traceEnabled = log.isTraceEnabled();
+		final boolean traceEnabled = LOG.isTraceEnabled();
 
 		for ( DuplicationStrategy strategy : duplicationStrategies ) {
 
@@ -307,13 +308,13 @@ class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 			for ( int i = 0; i < size; i++ ) {
 				final T existingListener = listenersRead[i];
 				if ( traceEnabled ) {
-					log.tracef( "Checking incoming listener [`%s`] for match against existing listener [`%s`]",
+					LOG.tracef( "Checking incoming listener [`%s`] for match against existing listener [`%s`]",
 							listener, existingListener );
 				}
 
 				if ( strategy.areMatch( listener,  existingListener ) ) {
 					if ( traceEnabled ) {
-						log.tracef( "Found listener match between `%s` and `%s`",
+						LOG.tracef( "Found listener match between `%s` and `%s`",
 								listener, existingListener );
 					}
 
@@ -323,13 +324,13 @@ class EventListenerGroupImpl<T> implements EventListenerGroup<T> {
 							throw new EventListenerRegistrationException( "Duplicate event listener found" );
 						case KEEP_ORIGINAL:
 							if ( traceEnabled ) {
-								log.tracef( "Skipping listener registration (%s) : `%s`",
+								LOG.tracef( "Skipping listener registration (%s) : `%s`",
 										action, listener );
 							}
 							return;
 						case REPLACE_ORIGINAL:
 							if ( traceEnabled ) {
-								log.tracef( "Replacing listener registration (%s) : `%s` -> `%s`",
+								LOG.tracef( "Replacing listener registration (%s) : `%s` -> `%s`",
 										action, existingListener, listener );
 							}
 							prepareListener( listener );

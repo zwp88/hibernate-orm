@@ -9,6 +9,8 @@ ext {
     db = project.getProperty('db')
     dbHost = System.getProperty( 'dbHost', 'localhost' )
     dbService = System.getProperty( 'dbService', '' )
+    dbPassword = System.getProperty( 'dbPassword', '' ).replace('"', '')
+    dbConnectionStringSuffix = System.getProperty( 'dbConnectionStringSuffix', '' ).replace('"', '')
     runID = System.getProperty( 'runID', '' )
 
     dbBundle = [
@@ -70,7 +72,7 @@ ext {
                     'jdbc.user'  : 'hibernate_orm_test',
                     'jdbc.pass'  : 'hibernate_orm_test',
                     // Disable prepared statement caching due to https://www.postgresql.org/message-id/CAEcMXhmmRd4-%2BNQbnjDT26XNdUoXdmntV9zdr8%3DTu8PL9aVCYg%40mail.gmail.com
-                    'jdbc.url'   : 'jdbc:postgresql://' + dbHost + '/hibernate_orm_test?preparedStatementCacheQueries=0&escapeSyntaxCallMode=callIfNoReturn',
+                    'jdbc.url'   : 'jdbc:postgresql://' + dbHost + '/hibernate_orm_test_$worker?preparedStatementCacheQueries=0&escapeSyntaxCallMode=callIfNoReturn',
                     'jdbc.datasource' : 'org.postgresql.Driver',
 //                        'jdbc.datasource' : 'org.postgresql.ds.PGSimpleDataSource',
                     'connection.init_sql' : ''
@@ -286,6 +288,15 @@ ext {
                     'jdbc.url'   : 'jdbc:oracle:thin:@' + dbHost + ':1521/' + dbService,
                     'jdbc.datasource' : 'oracle.jdbc.OracleDriver',
 //                        'jdbc.datasource' : 'oracle.jdbc.datasource.impl.OracleDataSource',
+                    'connection.init_sql' : ''
+            ],
+            oracle_test_pilot_database: [
+                    'db.dialect' : 'org.hibernate.dialect.OracleDialect',
+                    'jdbc.driver': 'oracle.jdbc.OracleDriver',
+                    'jdbc.user'  : 'hibernate_orm_test_$worker_' + runID,
+                    'jdbc.pass'  : dbPassword,
+                    'jdbc.url'   : 'jdbc:oracle:thin:@' + dbConnectionStringSuffix + '?oracle.jdbc.enableQueryResultCache=false',
+                    'jdbc.datasource' : 'oracle.jdbc.OracleDriver',
                     'connection.init_sql' : ''
             ],
             mssql : [

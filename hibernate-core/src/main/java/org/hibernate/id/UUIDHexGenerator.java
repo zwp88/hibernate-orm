@@ -30,6 +30,7 @@ import static org.hibernate.internal.util.config.ConfigurationHelper.getString;
  */
 @Deprecated(since = "6")
 public class UUIDHexGenerator extends AbstractUUIDGenerator {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( UUIDHexGenerator.class );
 
 	/**

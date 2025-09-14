@@ -301,6 +301,7 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 		return characterType;
 	}
 
+	@Override
 	public BasicType<String> getStringType() {
 		final BasicType<String> stringType = this.stringType;
 		if ( stringType == null ) {
@@ -913,7 +914,7 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 		checkMultiselect( selections );
 		return new SqmJpaCompoundSelection<>(
 				selections.stream().map( selection -> (SqmSelectableNode<?>) selection ).toList(),
-				getTypeConfiguration().getJavaTypeRegistry().getDescriptor( Tuple.class ),
+				getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( Tuple.class ),
 				this
 		);
 	}
@@ -973,7 +974,7 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 
 	public <Y> JpaCompoundSelection<Y> arrayInternal(Class<Y> resultClass, List<? extends SqmSelectableNode<?>> selections) {
 		checkMultiselect( selections );
-		final JavaType<Y> javaType = getTypeConfiguration().getJavaTypeRegistry().getDescriptor( resultClass );
+		final var javaType = getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( resultClass );
 		return new SqmJpaCompoundSelection<>( selections, javaType, this );
 	}
 
@@ -1219,7 +1220,8 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 		final SqmExpression<N> sqmExpression = (SqmExpression<N>) x;
 		return new SqmUnaryOperation<>(
 				UnaryArithmeticOperator.UNARY_MINUS,
-				sqmExpression
+				sqmExpression,
+				getNodeBuilder()
 		);
 	}
 
@@ -1658,7 +1660,7 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 		private final JavaType<T> javaType;
 
 		public MultiValueParameterType(Class<T> type) {
-			this.javaType = getTypeConfiguration().getJavaTypeRegistry().getDescriptor( type );
+			javaType = getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( type );
 		}
 
 		@Override
@@ -2951,6 +2953,66 @@ public class SqmCriteriaNodeBuilder implements NodeBuilder, Serializable {
 	@Override
 	public SqmPredicate notIlike(Expression<String> x, String pattern, char escapeChar) {
 		return not( ilike( x, pattern, escapeChar ) );
+	}
+
+	@Override
+	public JpaPredicate likeRegexp(Expression<String> x, String pattern) {
+		return new SqmBooleanExpressionPredicate(
+				getFunctionDescriptor( "regexp_like" )
+						.generateSqmExpression(
+								asList( (SqmExpression<String>) x,
+										literal( pattern ) ),
+								null,
+								getQueryEngine()
+						),
+				this
+		);
+	}
+
+	@Override
+	public JpaPredicate ilikeRegexp(Expression<String> x, String pattern) {
+		return new SqmBooleanExpressionPredicate(
+				getFunctionDescriptor( "regexp_like" )
+						.generateSqmExpression(
+								asList( (SqmExpression<String>) x,
+										literal( pattern ),
+										literal( "i" ) ),
+								null,
+								getQueryEngine()
+						),
+				this
+		);
+	}
+
+	@Override
+	public JpaPredicate notLikeRegexp(Expression<String> x, String pattern) {
+		return new SqmBooleanExpressionPredicate(
+				getFunctionDescriptor( "regexp_like" )
+						.generateSqmExpression(
+								asList( (SqmExpression<String>) x,
+										literal( pattern ) ),
+								null,
+								getQueryEngine()
+						),
+				true,
+				this
+		);
+	}
+
+	@Override
+	public JpaPredicate notIlikeRegexp(Expression<String> x, String pattern) {
+		return new SqmBooleanExpressionPredicate(
+				getFunctionDescriptor( "regexp_like" )
+						.generateSqmExpression(
+								asList( (SqmExpression<String>) x,
+										literal( pattern ),
+										literal( "i" ) ),
+								null,
+								getQueryEngine()
+						),
+				true,
+				this
+		);
 	}
 
 	@Override

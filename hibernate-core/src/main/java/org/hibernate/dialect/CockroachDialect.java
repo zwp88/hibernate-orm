@@ -394,7 +394,7 @@ public class CockroachDialect extends Dialect {
 						ObjectNullAsBinaryTypeJdbcType.INSTANCE,
 						typeContributions.getTypeConfiguration()
 								.getJavaTypeRegistry()
-								.getDescriptor( Object.class )
+								.resolveDescriptor( Object.class )
 				)
 		);
 
@@ -512,6 +512,7 @@ public class CockroachDialect extends Dialect {
 		functionFactory.hex( "encode(?1, 'hex')" );
 		functionFactory.sha( "digest(?1, 'sha256')" );
 		functionFactory.md5( "digest(?1, 'md5')" );
+		functionFactory.regexpLike_postgresql( false );
 	}
 
 	@Override
@@ -992,6 +993,8 @@ public class CockroachDialect extends Dialect {
 
 	@Override
 	public boolean useInputStreamToInsertBlob() {
+		// PG-JDBC treats setBinaryStream()/setCharacterStream() calls like bytea/varchar, which are not LOBs,
+		// so disable stream bindings for this dialect completely
 		return false;
 	}
 

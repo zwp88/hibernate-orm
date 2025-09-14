@@ -7,16 +7,15 @@ package org.hibernate.id.enhanced;
 import org.hibernate.HibernateException;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.id.IntegralDataTypeHolder;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.query.sqm.BinaryArithmeticOperator;
 import org.hibernate.sql.ast.tree.expression.BinaryArithmeticExpression;
 import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.ast.tree.expression.QueryLiteral;
-import org.jboss.logging.Logger;
 
 import java.io.Serializable;
-import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -37,11 +36,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see PooledLoOptimizer
  */
 public class PooledOptimizer extends AbstractOptimizer implements InitialValueAwareOptimizer {
-	private static final CoreMessageLogger log = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			PooledOptimizer.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( PooledOptimizer.class );
 
 	private static class GenerationState {
 		private IntegralDataTypeHolder hiValue;
@@ -61,8 +57,8 @@ public class PooledOptimizer extends AbstractOptimizer implements InitialValueAw
 		if ( incrementSize < 1 ) {
 			throw new HibernateException( "increment size cannot be less than 1" );
 		}
-		if ( log.isTraceEnabled() ) {
-			log.tracev( "Creating pooled optimizer with [incrementSize={0}; returnClass={1}]",
+		if ( LOG.isTraceEnabled() ) {
+			LOG.tracev( "Creating pooled optimizer with [incrementSize={0}; returnClass={1}]",
 					incrementSize, returnClass.getName() );
 		}
 	}
@@ -81,7 +77,7 @@ public class PooledOptimizer extends AbstractOptimizer implements InitialValueAw
 				// because we would not be able to control this if
 				// we are using a sequence...
 				if ( generationState.hiValue.lt( 1 ) ) {
-					log.pooledOptimizerReportedInitialValue( generationState.hiValue );
+					LOG.pooledOptimizerReportedInitialValue( generationState.hiValue );
 				}
 				// the call to obtain next-value just gave us the initialValue
 				if ( ( initialValue == -1

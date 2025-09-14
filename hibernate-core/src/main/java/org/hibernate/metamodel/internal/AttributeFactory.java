@@ -29,6 +29,7 @@ import org.hibernate.metamodel.RepresentationMode;
 import org.hibernate.metamodel.UnsupportedMappingException;
 import org.hibernate.metamodel.ValueClassification;
 import org.hibernate.metamodel.mapping.CompositeIdentifierMapping;
+import org.hibernate.metamodel.mapping.DiscriminatorType;
 import org.hibernate.metamodel.mapping.EmbeddableValuedModelPart;
 import org.hibernate.metamodel.mapping.EntityIdentifierMapping;
 import org.hibernate.metamodel.model.domain.internal.AbstractIdentifiableType;
@@ -77,7 +78,7 @@ import jakarta.persistence.metamodel.Attribute;
  * @author Emmanuel Bernard
  */
 public class AttributeFactory {
-	private static final CoreMessageLogger log = CoreLogging.messageLogger( AttributeFactory.class );
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( AttributeFactory.class );
 
 	private final MetadataContext context;
 
@@ -104,11 +105,11 @@ public class AttributeFactory {
 			MetadataContext metadataContext) {
 		if ( property.isSynthetic() ) {
 			// hide synthetic/virtual properties (fabricated by Hibernate) from the JPA metamodel.
-			log.tracef( "Skipping synthetic property %s(%s)", ownerType.getTypeName(), property.getName() );
+			LOG.tracef( "Skipping synthetic property %s(%s)", ownerType.getTypeName(), property.getName() );
 			return null;
 		}
 
-		log.tracef( "Building attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
+		LOG.tracef( "Building attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
 		final var attributeMetadata =
 				determineAttributeMetadata( wrap( ownerType, property ), normalMemberResolver, metadataContext );
 
@@ -162,7 +163,7 @@ public class AttributeFactory {
 	public <X> SingularPersistentAttribute<X, ?> buildIdAttribute(
 			IdentifiableDomainType<X> ownerType,
 			Property property) {
-		log.tracef( "Building identifier attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
+		LOG.tracef( "Building identifier attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
 
 		final var attributeMetadata =
 				determineAttributeMetadata( wrap( ownerType, property ), identifierMemberResolver );
@@ -190,7 +191,7 @@ public class AttributeFactory {
 	public <X> SingularAttributeImpl<X, ?> buildVersionAttribute(
 			IdentifiableDomainType<X> ownerType,
 			Property property) {
-		log.tracef( "Building version attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
+		LOG.tracef( "Building version attribute [%s.%s]", ownerType.getTypeName(), property.getName() );
 
 		final var attributeMetadata =
 				determineAttributeMetadata( wrap( ownerType, property ), versionMemberResolver );
@@ -237,17 +238,14 @@ public class AttributeFactory {
 		}
 
 		final var mappedSuperclass = component.getMappedSuperclass();
-		final var superType = mappedSuperclass == null ? null : context.locateMappedSuperclassType( mappedSuperclass );
+		final var superType =
+				mappedSuperclass == null
+						? null
+						: context.locateMappedSuperclassType( mappedSuperclass );
 
 		final var discriminatorType = component.isPolymorphic() ? component.getDiscriminatorType() : null;
 
-		final var embeddableType = new EmbeddableTypeImpl<>(
-				context.getJavaTypeRegistry().resolveManagedTypeDescriptor( embeddableClass ),
-				superType,
-				discriminatorType,
-				false,
-				context.getJpaMetamodel()
-		);
+		final var embeddableType = embeddableType( context, embeddableClass, superType, discriminatorType );
 		context.registerEmbeddableType( embeddableType, component );
 
 		if ( component.isPolymorphic() ) {
@@ -259,27 +257,39 @@ public class AttributeFactory {
 			for ( final String subclassName : embeddableSubclasses ) {
 				if ( domainTypes.containsKey( subclassName ) ) {
 					assert subclassName.equals( embeddableType.getTypeName() );
-					continue;
 				}
-				final Class<?> subclass = classLoaderService.classForName( subclassName );
-				final var subType = new EmbeddableTypeImpl<>(
-						context.getJavaTypeRegistry().resolveManagedTypeDescriptor( subclass ),
-						domainTypes.get( component.getSuperclass( subclassName ) ),
-						discriminatorType,
-						false,
-						context.getJpaMetamodel()
-				);
-				domainTypes.put( subclassName, subType );
-				context.registerEmbeddableType( subType, component );
+				else {
+					final Class<?> subclass = classLoaderService.classForName( subclassName );
+					final var superTypeEmbeddable = domainTypes.get( component.getSuperclass( subclassName ) );
+					final var subType = embeddableType( context, subclass, superTypeEmbeddable, discriminatorType );
+					domainTypes.put( subclassName, subType );
+					context.registerEmbeddableType( subType, component );
+				}
 			}
 		}
 
 		return embeddableType;
 	}
 
+	private static <J> EmbeddableTypeImpl<J> embeddableType(
+			MetadataContext context,
+			Class<J> subclass,
+			ManagedDomainType<?> superType,
+			DiscriminatorType<?> discriminatorType) {
+		@SuppressWarnings("unchecked")
+		final var castSuperType = (ManagedDomainType<? super J>) superType;
+		return new EmbeddableTypeImpl<>(
+				context.getJavaTypeRegistry().resolveManagedTypeDescriptor( subclass ),
+				castSuperType,
+				discriminatorType,
+				false,
+				context.getJpaMetamodel()
+		);
+	}
+
 	private static EmbeddableTypeImpl<?> dynamicEmbeddableType(MetadataContext context, Component component) {
 		final var embeddableType = new EmbeddableTypeImpl<>(
-				context.getJavaTypeRegistry().getDescriptor( java.util.Map.class ),
+				context.getJavaTypeRegistry().resolveDescriptor( java.util.Map.class ),
 				null,
 				null,
 				true,
@@ -410,14 +420,14 @@ public class AttributeFactory {
 		final Property propertyMapping = attributeContext.getPropertyMapping();
 		final String propertyName = propertyMapping.getName();
 
-		log.tracef( "Starting attribute metadata determination [%s]", propertyName );
+		LOG.tracef( "Starting attribute metadata determination [%s]", propertyName );
 
 		final var member = memberResolver.resolveMember( attributeContext, context );
-		log.tracef( "\tMember: %s", member );
+		LOG.tracef( "\tMember: %s", member );
 
 		final var value = propertyMapping.getValue();
 		final var type = value.getType();
-		log.tracef( "\tType: %s [%s]", type.getName(), type.getClass().getSimpleName() );
+		LOG.tracef( "\tType: %s [%s]", type.getName(), type.getClass().getSimpleName() );
 
 		if ( type instanceof AnyType ) {
 			return new SingularAttributeMetadataImpl<>(

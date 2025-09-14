@@ -34,6 +34,7 @@ import org.hibernate.boot.registry.classloading.spi.ClassLoaderService;
 import org.hibernate.boot.spi.SessionFactoryOptions;
 import org.hibernate.cache.spi.CacheImplementor;
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
+import org.hibernate.engine.creation.spi.SessionBuilderImplementor;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.profile.FetchProfile;
 import org.hibernate.event.service.spi.EventListenerRegistry;
@@ -421,5 +422,10 @@ public class SessionFactoryDelegatingImpl implements SessionFactoryImplementor, 
 	@Override
 	public <R> TypedQueryReference<R> addNamedQuery(String name, TypedQuery<R> query) {
 		return delegate.addNamedQuery( name, query );
+	}
+
+	@Override
+	public Object resolveTenantIdentifier() {
+		return delegate.resolveTenantIdentifier();
 	}
 }

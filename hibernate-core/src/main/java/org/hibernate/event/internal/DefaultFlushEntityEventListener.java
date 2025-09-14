@@ -51,6 +51,7 @@ import static org.hibernate.pretty.MessageHelper.infoString;
  * @author Gavin King
  */
 public class DefaultFlushEntityEventListener implements FlushEntityEventListener, CallbackRegistryConsumer {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultFlushEntityEventListener.class );
 
 	private CallbackRegistry callbackRegistry;
@@ -72,8 +73,8 @@ public class DefaultFlushEntityEventListener implements FlushEntityEventListener
 		}
 		if ( !(entryId instanceof DelayedPostInsertIdentifier) ) {
 			final Object currentId = persister.getIdentifier( object, session );
-			// Small optimisation: always try to avoid getIdentifierType().isEqual(..) when possible.
-			// (However it's not safe to invoke the equals() method as it might trigger side effects.)
+			// Small optimization: always try to avoid getIdentifierType().isEqual(..) when possible.
+			// (However, it's not safe to invoke the equals() method as it might trigger side effects.)
 			if ( entryId != currentId
 						&& !entry.getStatus().isDeletedOrGone()
 						&& !persister.getIdentifierType().isEqual( entryId, currentId, session.getFactory() ) ) {
@@ -141,7 +142,7 @@ public class DefaultFlushEntityEventListener implements FlushEntityEventListener
 			// now update the object
 			// has to be outside the main if block above (because of collections)
 			if ( substitute ) {
-				persister.setPropertyValues( entity, values );
+				persister.setValues( entity, values );
 			}
 			// Search for collections by reachability, updating their role.
 			// We don't want to touch collections reachable from a deleted object
@@ -655,7 +656,7 @@ public class DefaultFlushEntityEventListener implements FlushEntityEventListener
 				dirtyPropertyNames[i] = allPropertyNames[dirtyProperties[i]];
 			}
 			LOG.trace( "Found dirty properties [" + infoString( persister.getEntityName(), entry.getId() )
-						+ "] : "+ Arrays.toString( dirtyPropertyNames ) );
+						+ "] : " + Arrays.toString( dirtyPropertyNames ) );
 		}
 	}
 

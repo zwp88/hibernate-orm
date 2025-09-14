@@ -24,6 +24,7 @@ import org.hibernate.internal.CoreMessageLogger;
  */
 @Deprecated(since = "6.0")
 public class GUIDGenerator implements IdentifierGenerator {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( GUIDGenerator.class );
 
 	private static boolean WARNED;

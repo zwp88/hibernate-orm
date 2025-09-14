@@ -4,14 +4,13 @@
  */
 package org.hibernate.id.enhanced;
 
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.util.Properties;
 
 import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 
-import org.jboss.logging.Logger;
 
 import static org.hibernate.internal.util.StringHelper.isNotEmpty;
 
@@ -21,11 +20,8 @@ import static org.hibernate.internal.util.StringHelper.isNotEmpty;
  * @author Steve Ebersole
  */
 public class OptimizerFactory {
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			OptimizerFactory.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( OptimizerFactory.class );
 
 	private static final Class<?>[] CTOR_SIG = new Class[] { Class.class, int.class };
 

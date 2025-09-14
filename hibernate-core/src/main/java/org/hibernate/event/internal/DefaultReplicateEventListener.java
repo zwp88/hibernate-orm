@@ -37,6 +37,7 @@ import static org.hibernate.pretty.MessageHelper.infoString;
 public class DefaultReplicateEventListener
 		extends AbstractSaveEventListener<ReplicationMode>
 		implements ReplicateEventListener {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultReplicateEventListener.class );
 
 	/**

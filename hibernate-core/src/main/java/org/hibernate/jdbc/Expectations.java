@@ -24,6 +24,7 @@ import static java.sql.Statement.SUCCESS_NO_INFO;
  * @author Steve Ebersole
  */
 public class Expectations {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( Expectations.class );
 
 	static final SqlExceptionHelper sqlExceptionHelper = new SqlExceptionHelper( false );

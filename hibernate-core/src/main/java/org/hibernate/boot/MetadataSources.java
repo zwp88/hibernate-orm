@@ -66,6 +66,7 @@ import static org.hibernate.internal.util.collections.CollectionHelper.arrayList
  * @since 5.0
  */
 public class MetadataSources implements Serializable {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( MetadataSources.class );
 
 	private final ServiceRegistry serviceRegistry;

@@ -29,6 +29,7 @@ import static org.hibernate.proxy.HibernateProxy.extractLazyInitializer;
  * @author Steve Ebersole
  */
 public class DefaultEvictEventListener implements EvictEventListener {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DefaultEvictEventListener.class );
 
 	/**

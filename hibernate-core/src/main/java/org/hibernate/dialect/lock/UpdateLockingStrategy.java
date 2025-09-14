@@ -4,7 +4,6 @@
  */
 package org.hibernate.dialect.lock;
 
-import java.lang.invoke.MethodHandles;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
@@ -15,6 +14,7 @@ import org.hibernate.StaleObjectStateException;
 import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.pretty.MessageHelper;
@@ -23,7 +23,6 @@ import org.hibernate.stat.spi.StatisticsImplementor;
 import org.hibernate.type.BasicType;
 import org.hibernate.type.Type;
 
-import org.jboss.logging.Logger;
 
 /**
  * A locking strategy where a lock is obtained via an update statement.
@@ -34,11 +33,8 @@ import org.jboss.logging.Logger;
  * @since 3.2
  */
 public class UpdateLockingStrategy implements LockingStrategy {
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger(
-			MethodHandles.lookup(),
-			CoreMessageLogger.class,
-			UpdateLockingStrategy.class.getName()
-	);
+
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( UpdateLockingStrategy.class );
 
 	private final EntityPersister lockable;
 	private final LockMode lockMode;

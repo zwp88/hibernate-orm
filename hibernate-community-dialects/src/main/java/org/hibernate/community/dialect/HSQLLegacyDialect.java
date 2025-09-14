@@ -99,11 +99,13 @@ import static org.hibernate.type.SqlTypes.NUMERIC;
  * @author Fred Toussi
  */
 public class HSQLLegacyDialect extends Dialect {
+
 	private static final CoreMessageLogger LOG = Logger.getMessageLogger(
 			MethodHandles.lookup(),
 			CoreMessageLogger.class,
 			org.hibernate.community.dialect.HSQLLegacyDialect.class.getName()
 	);
+
 	private final UniqueDelegate uniqueDelegate = new CreateTableUniqueDelegate( this );
 	private final HSQLIdentityColumnSupport identityColumnSupport;
 
@@ -292,6 +294,7 @@ public class HSQLLegacyDialect extends Dialect {
 				functionContributions.getTypeConfiguration(),
 				SqlAstNodeRenderingMode.NO_PLAIN_PARAMETER
 		) );
+		functionFactory.regexpLike_hsql();
 	}
 
 	/**

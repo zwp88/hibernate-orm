@@ -20,6 +20,7 @@ import java.lang.reflect.Member;
 import java.util.EnumSet;
 
 import static org.hibernate.generator.internal.CurrentTimestampGeneration.getCurrentTimestamp;
+import static org.hibernate.generator.internal.CurrentTimestampGeneration.getGeneratorDelegate;
 
 /**
  * Value generation strategy using the query {@link Dialect#getCurrentTimestampSelectString()}.
@@ -42,15 +43,17 @@ import static org.hibernate.generator.internal.CurrentTimestampGeneration.getCur
 public class SourceGeneration implements BeforeExecutionGenerator {
 
 	private final JavaType<?> propertyType;
-	private final CurrentTimestampGeneration.CurrentTimestampGeneratorDelegate valueGenerator;
+	private final CurrentTimestampGeneration.GeneratorDelegate valueGenerator;
 
 	public SourceGeneration(Source annotation, Member member, GeneratorCreationContext context) {
 		this( annotation.value(), context.getProperty().getType().getReturnedClass(), context );
 	}
 
 	public SourceGeneration(SourceType sourceType, Class<?> propertyType, GeneratorCreationContext context) {
-		this.propertyType = context.getDatabase().getTypeConfiguration().getJavaTypeRegistry().getDescriptor( propertyType );
-		this.valueGenerator = CurrentTimestampGeneration.getGeneratorDelegate( sourceType, propertyType, context );
+		this.propertyType =
+				context.getDatabase().getTypeConfiguration().getJavaTypeRegistry()
+						.resolveDescriptor( propertyType );
+		this.valueGenerator = getGeneratorDelegate( sourceType, propertyType, context );
 	}
 
 	/**

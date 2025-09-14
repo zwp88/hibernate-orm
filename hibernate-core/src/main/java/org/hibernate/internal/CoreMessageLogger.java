@@ -9,15 +9,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
-import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceConfigurationError;
 import java.util.Set;
 
 import org.hibernate.HibernateException;
 import org.hibernate.Internal;
-import org.hibernate.JDBCException;
-import org.hibernate.LockMode;
 import org.hibernate.cache.CacheException;
 import org.hibernate.id.IntegralDataTypeHolder;
 import org.hibernate.type.SerializationException;
@@ -29,10 +26,8 @@ import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 import org.jboss.logging.annotations.ValidIdRange;
 
-import jakarta.transaction.Synchronization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import static org.hibernate.cfg.ValidationSettings.JAKARTA_VALIDATION_MODE;
 import static org.jboss.logging.Logger.Level.DEBUG;
 import static org.jboss.logging.Logger.Level.ERROR;
 import static org.jboss.logging.Logger.Level.INFO;
@@ -51,10 +46,6 @@ import static org.jboss.logging.Logger.Level.WARN;
 public interface CoreMessageLogger extends BasicLogger {
 
 	@LogMessage(level = WARN)
-	@Message(value = "Already session bound on call to bind(); make sure you clean up your sessions", id = 2)
-	void alreadySessionBound();
-
-	@LogMessage(level = WARN)
 	@Message(value = "Configuration settings with for connection provider '%s' are set, but the connection provider is not on the classpath; these properties will be ignored",
 			id = 22)
 	void providerClassNotFound(String c3p0ProviderClassName);
@@ -70,22 +61,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = DEBUG)
 	@Message(value = "Second-level cache disabled", id = 26)
 	void noRegionFactory();
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Instantiating factory [%s] with settings: %s", id = 30)
-	void instantiatingFactory(String uuid, Map<String, Object> settings);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Closing factory [%s]", id = 31)
-	void closingFactory(String uuid);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Serializing factory [%s]", id = 32)
-	void serializingFactory(String uuid);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Deserialized factory [%s]", id = 33)
-	void deserializedFactory(String uuid);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Composite id class does not override equals(): %s", id = 38)
@@ -111,26 +86,10 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Duplicate generator name %s", id = 69)
 	void duplicateGeneratorName(String name);
 
-	@LogMessage(level = INFO)
-	@Message(value = "entity listener duplication, first event definition will be used: %s", id = 73)
-	void duplicateListener(String className);
-
-	@LogMessage(level = WARN)
-	@Message(value = "Found more than one <persistence-unit-metadata>, subsequent ignored", id = 74)
-	void duplicateMetadata();
-
 	@LogMessage(level = WARN)
 	@Message(value = "Entity [%s] is abstract-class/interface explicitly mapped as non-abstract; be sure to supply entity-names",
 			id = 84)
 	void entityMappedAsNonAbstract(String name);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Exception in interceptor afterTransactionCompletion()", id = 87)
-	void exceptionInAfterTransactionCompletionInterceptor(@Cause Throwable e);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Exception in interceptor beforeTransactionCompletion()", id = 88)
-	void exceptionInBeforeTransactionCompletionInterceptor(@Cause Throwable e);
 
 	@LogMessage(level = INFO)
 	@Message(value = "Sub-resolver threw unexpected exception, continuing to next: %s", id = 89)
@@ -154,10 +113,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@Message(value = "Handling transient entity in delete processing", id = 114)
 	void handlingTransientEntity();
 
-	@LogMessage(level = DEBUG)
-	@Message(value = "HQL: %s, time: %sms, rows: %s", id = 117)
-	void hql(String hql, Long valueOf, Long valueOf2);
-
 	@LogMessage(level = WARN)
 	@Message(value = "HSQLDB supports only READ_UNCOMMITTED isolation", id = 118)
 	void hsqldbSupportsOnlyReadCommittedIsolation();
@@ -177,10 +132,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = INFO)
 	@Message(value = "Instantiating explicit connection provider: %s", id = 130)
 	void instantiatingExplicitConnectionProvider(String providerClassName);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Array element type error\n%s", id = 132)
-	void invalidArrayElementType(String message);
 
 	@LogMessage(level = INFO)
 	@Message(value = "java.sql.Types mapped the same code [%s] multiple times; was [%s]; now [%s]", id = 141)
@@ -279,14 +230,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	void startTime(long startTime);
 
 	@LogMessage(level = INFO)
-	@Message(value = "Synchronization [%s] was already registered", id = 259)
-	void synchronizationAlreadyRegistered(Synchronization synchronization);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Exception calling user Synchronization [%s]: %s", id = 260)
-	void synchronizationFailed(Synchronization synchronization, Throwable t);
-
-	@LogMessage(level = INFO)
 	@Message(value = "Table not found: %s", id = 262)
 	void tableNotFound(String name);
 
@@ -305,10 +248,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = WARN)
 	@Message(value = "Error accessing type info result set: %s", id = 273)
 	void unableToAccessTypeInfoResultSet(String string);
-
-	@LogMessage(level = WARN)
-	@Message(value = "Unable to apply constraints on DDL for %s", id = 274)
-	void unableToApplyConstraints(String className, @Cause Exception e);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Unable to cleanup temporary id table after use [%s]", id = 283)
@@ -333,14 +272,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = ERROR)
 	@Message(value = "Could not close stream on hibernate.properties: %s", id = 297)
 	void unableToCloseStreamError(IOException error);
-
-	@LogMessage(level = ERROR)
-	@Message(value = "Unable to construct current session context [%s]", id = 302)
-	void unableToConstructCurrentSessionContext(String impl, @Cause Throwable e);
-
-	@LogMessage(level = WARN)
-	@Message(value = "Unable to close temporary session used to load lazy collection associated to no session", id = 303)
-	void unableToCloseTemporarySession();
 
 	@LogMessage(level = WARN)
 	@Message(value = "Could not copy system properties, system properties will be ignored", id = 304)
@@ -490,22 +421,10 @@ public interface CoreMessageLogger extends BasicLogger {
 
 	@LogMessage(level = WARN)
 	@Message(
-			value = "Alias-specific lock modes requested, which is not currently supported with follow-on locking; " +
-					"all acquired locks will be [%s]",
-			id = 445
-	)
-	void aliasSpecificLockingWithFollowOnLocking(LockMode lockMode);
-
-	@LogMessage(level = WARN)
-	@Message(
 			value = "Explicit use of UPGRADE_SKIPLOCKED in lock() calls is not recommended; use normal UPGRADE locking instead",
 			id = 447
 	)
 	void explicitSkipLockedLockCombo();
-
-	@LogMessage(level = INFO)
-	@Message(value = "'" + JAKARTA_VALIDATION_MODE + "' named multiple values: %s", id = 448)
-	void multipleValidationModes(String modes);
 
 	@LogMessage(level = WARN)
 	@Message(
@@ -515,19 +434,9 @@ public interface CoreMessageLogger extends BasicLogger {
 	)
 	void nonCompliantMapConversion(String collectionRole);
 
-	// 458-466 reserved for use by main branch (ORM 5.0.0)
-
 	@LogMessage(level = DEBUG)
 	@Message(value = "Creating pooled optimizer (lo) with [incrementSize=%s; returnClass=%s]", id = 467)
 	void creatingPooledLoOptimizer(int incrementSize, String name);
-
-	@LogMessage(level = WARN)
-	@Message(value = "An unexpected session is defined for a collection, but the collection is not connected to that session. A persistent collection may only be associated with one session at a time. Overwriting session. %s", id = 470)
-	void logUnexpectedSessionInCollectionNotConnected(String msg);
-
-	@LogMessage(level = WARN)
-	@Message(value = "Cannot unset session in a collection because an unexpected session is defined. A persistent collection may only be associated with one session at a time. %s", id = 471 )
-	void logCannotUnsetUnexpectedSessionInCollection(String msg);
 
 	@LogMessage(level = INFO)
 	@Message(value = "Omitting cached file [%s] as the mapping file is newer", id = 473)
@@ -585,28 +494,12 @@ public interface CoreMessageLogger extends BasicLogger {
 	void ignoreQueuedOperationsOnMerge(String collectionInfoString);
 
 	@LogMessage(level = WARN)
-	@Message(value = "Attaching an uninitialized collection with queued operations to a session: %s", id = 495)
-	void queuedOperationWhenAttachToSession(String collectionInfoString);
-
-	@LogMessage(level = INFO)
-	@Message(value = "Detaching an uninitialized collection with queued operations from a session: %s", id = 496)
-	void queuedOperationWhenDetachFromSession(String collectionInfoString);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Detaching an uninitialized collection with queued operations from a session due to rollback: %s", id = 498)
-	void queuedOperationWhenDetachFromSessionOnRollback(String collectionInfoString);
-
-	@LogMessage(level = WARN)
 	@Message(value = "The [%s] property of the [%s] entity was modified, but it won't be updated because the property is immutable.", id = 502)
 	void ignoreImmutablePropertyModification(String propertyName, String entityName);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Multiple configuration properties defined to create schema. Choose at most one among 'jakarta.persistence.create-database-schemas' or 'hibernate.hbm2ddl.create_namespaces'.", id = 504)
 	void multipleSchemaCreationSettingsDefined();
-
-	@LogMessage(level = WARN)
-	@Message(value = "Detaching an uninitialized collection with enabled filters from a session: %s", id = 506)
-	void enabledFiltersWhenDetachFromSession(String collectionInfoString);
 
 	@LogMessage(level = WARN)
 	@Message(value = "Multi-table insert is not available due to missing identity and window function support for: %s", id = 509)
@@ -631,12 +524,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	void enhancementDiscoveryFailed(String className, @Cause Throwable cause);
 
 	@LogMessage(level = DEBUG)
-	@Message(value = "JDBCException was thrown for a transaction marked for rollback. " +
-			" This is probably due to an operation failing fast due to the transaction being marked for rollback.",
-			id = 520)
-	void jdbcExceptionThrownWithTransactionRolledBack(@Cause JDBCException e);
-
-	@LogMessage(level = DEBUG)
 	@Message(value = "Flushing and evicting managed instance of type [%s] before removing detached instance with same id",
 			id = 530)
 	void flushAndEvictOnRemove(String entityName);
@@ -654,11 +541,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	void unableToLocateStaticMetamodelField(
 			String name,
 			String name2);
-
-	@LogMessage(level = DEBUG)
-	@Message(value = "Returning null (as required by JPA spec) rather than throwing EntityNotFoundException " +
-			"since the entity of type '%s' with id [%s] does not exist", id = 15013)
-	void ignoringEntityNotFound(String entityName, String identifier);
 
 	@LogMessage(level = DEBUG)
 	@Message(
@@ -682,30 +564,6 @@ public interface CoreMessageLogger extends BasicLogger {
 	void invalidJSONColumnType(String actual, String expected);
 
 	@LogMessage(level = TRACE)
-	@Message(value = "Closing logical connection", id = 456)
-	void closingLogicalConnection();
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Logical connection closed", id = 457)
-	void logicalConnectionClosed();
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Statistics initialized", id = 460)
-	void statisticsInitialized();
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Statistics collection enabled", id = 461)
-	void statisticsEnabled();
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Statistics collection disabled", id = 462)
-	void statisticsDisabled();
-
-	@LogMessage(level = TRACE)
-	@Message(value = "Statistics reset", id = 463)
-	void statisticsReset();
-
-	@LogMessage(level = TRACE)
 	@Message(value = "Initializing service: %s", id = 500)
 	void initializingService(String serviceRole);
 
@@ -720,124 +578,4 @@ public interface CoreMessageLogger extends BasicLogger {
 	@LogMessage(level = WARN)
 	@Message(value = "Encountered request for service by non-primary service role [%s -> %s]", id = 450)
 	void alternateServiceRole(String requestedRole, String targetRole);
-
-	@LogMessage(level = DEBUG)
-	@Message(
-			id = 401,
-			value = """
-					Logging session metrics:
-						%s ns acquiring %s JDBC connections
-						%s ns releasing %s JDBC connections
-						%s ns preparing %s JDBC statements
-						%s ns executing %s JDBC statements
-						%s ns executing %s JDBC batches
-						%s ns performing %s second-level cache puts
-						%s ns performing %s second-level cache hits
-						%s ns performing %s second-level cache misses
-						%s ns executing %s flushes (flushing a total of %s entities and %s collections)
-						%s ns executing %s pre-partial-flushes
-						%s ns executing %s partial-flushes (flushing a total of %s entities and %s collections)
-					"""
-	)
-	void sessionMetrics(
-			long jdbcConnectionAcquisitionTime,
-			int jdbcConnectionAcquisitionCount,
-			long jdbcConnectionReleaseTime,
-			int jdbcConnectionReleaseCount,
-			long jdbcPrepareStatementTime,
-			int jdbcPrepareStatementCount,
-			long jdbcExecuteStatementTime,
-			int jdbcExecuteStatementCount,
-			long jdbcExecuteBatchTime,
-			int jdbcExecuteBatchCount,
-			long cachePutTime,
-			int cachePutCount,
-			long cacheHitTime,
-			int cacheHitCount,
-			long cacheMissTime,
-			int cacheMissCount,
-			long flushTime,
-			int flushCount,
-			long flushEntityCount,
-			long flushCollectionCount,
-			long prePartialFlushTime,
-			int prePartialFlushCount,
-			long partialFlushTime,
-			int partialFlushCount,
-			long partialFlushEntityCount,
-			long partialFlushCollectionCount);
-
-	@LogMessage(level = INFO)
-	@Message(
-			id = 400,
-			value = """
-					Logging statistics:
-						Start time: %s
-						Sessions opened (closed): %s (%s)
-						Transactions started (successful): %s (%s)
-						Optimistic lock failures: %s
-						Flushes: %s
-						Connections obtained: %s
-						Statements prepared (closed): %s (%s)
-						Second-level cache puts: %s
-						Second-level cache hits (misses): %s (%s)
-						Entities loaded: %s
-						Entities fetched: %s (minimize this)
-						Entities updated, upserted, inserted, deleted: %s, %s, %s, %s
-						Collections loaded: %s
-						Collections fetched: %s (minimize this)
-						Collections updated, removed, recreated: %s, %s, %s
-						Natural id queries executed on database: %s
-						Natural id cache puts: %s
-						Natural id cache hits (misses): %s (%s)
-						Max natural id query execution time: %s ms
-						Queries executed on database: %s
-						Query cache puts: %s
-						Query cache hits (misses): %s (%s)
-						Max query execution time: %s ms
-						Update timestamps cache puts: %s
-						Update timestamps cache hits (misses): %s (%s)
-						Query plan cache hits (misses): %s (%s)
-					"""
-	)
-	void logStatistics(
-			long startTime,
-			long sessionOpenCount,
-			long sessionCloseCount,
-			long transactionCount,
-			long committedTransactionCount,
-			long optimisticFailureCount,
-			long flushCount,
-			long connectCount,
-			long prepareStatementCount,
-			long closeStatementCount,
-			long secondLevelCachePutCount,
-			long secondLevelCacheHitCount,
-			long secondLevelCacheMissCount,
-			long entityLoadCount,
-			long entityFetchCount,
-			long entityUpdateCount,
-			long entityUpsertCount,
-			long entityInsertCount,
-			long entityDeleteCount,
-			long collectionLoadCount,
-			long collectionFetchCount,
-			long collectionUpdateCount,
-			long collectionRemoveCount,
-			long collectionRecreateCount,
-			long naturalIdQueryExecutionCount,
-			long naturalIdCachePutCount,
-			long naturalIdCacheHitCount,
-			long naturalIdCacheMissCount,
-			long naturalIdQueryExecutionMaxTime,
-			long queryExecutionCount,
-			long queryCachePutCount,
-			long queryCacheHitCount,
-			long queryCacheMissCount,
-			long queryExecutionMaxTime,
-			long updateTimestampsCachePutCount,
-			long updateTimestampsCacheHitCount,
-			long updateTimestampsCacheMissCount,
-			long queryPlanCacheHitCount,
-			long queryPlanCacheMissCount);
 }

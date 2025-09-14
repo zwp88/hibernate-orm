@@ -6,12 +6,11 @@ package org.hibernate.internal.util.xml;
 
 import java.io.InputStream;
 import java.io.Serializable;
-import java.lang.invoke.MethodHandles;
 
+import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.util.ConfigHelper;
 
-import org.jboss.logging.Logger;
 
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
@@ -43,7 +42,7 @@ import org.xml.sax.InputSource;
 @Deprecated
 public class DTDEntityResolver implements EntityResolver, Serializable {
 
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger( MethodHandles.lookup(), CoreMessageLogger.class, DTDEntityResolver.class.getName() );
+	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( DTDEntityResolver.class );
 
 	private static final String HIBERNATE_NAMESPACE = "http://www.hibernate.org/dtd/";
 	private static final String OLD_HIBERNATE_NAMESPACE = "http://hibernate.sourceforge.net/";
@@ -54,7 +53,7 @@ public class DTDEntityResolver implements EntityResolver, Serializable {
 		if ( systemId != null ) {
 			LOG.debugf( "Trying to resolve system-id [%s]", systemId );
 			if ( systemId.startsWith( HIBERNATE_NAMESPACE ) ) {
-				LOG.debug( "Recognized hibernate namespace; attempting to resolve on classpath under org/hibernate/" );
+				LOG.debug( "Recognized Hibernate namespace; attempting to resolve on classpath under org/hibernate/" );
 				source = resolveOnClassPath( publicId, systemId, HIBERNATE_NAMESPACE );
 			}
 			else if ( systemId.startsWith( OLD_HIBERNATE_NAMESPACE ) ) {

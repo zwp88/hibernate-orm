@@ -29,6 +29,7 @@ import static org.hibernate.internal.CoreLogging.messageLogger;
  */
 @Internal
 public class GetterMethodImpl implements Getter {
+
 	private static final CoreMessageLogger LOG = messageLogger( GetterMethodImpl.class );
 
 	private final Class<?> containerClass;
@@ -47,7 +48,7 @@ public class GetterMethodImpl implements Getter {
 			return getterMethod.invoke( owner, ArrayHelper.EMPTY_OBJECT_ARRAY );
 		}
 		catch (InvocationTargetException ite) {
-			final Throwable cause = ite.getCause();
+			final var cause = ite.getCause();
 			if ( cause instanceof Error error ) {
 				// HHH-16403 Don't wrap Error
 				throw error;
@@ -138,7 +139,7 @@ public class GetterMethodImpl implements Getter {
 
 		private Method resolveMethod() {
 			try {
-				final Method method = declaringClass.getDeclaredMethod( methodName );
+				final var method = declaringClass.getDeclaredMethod( methodName );
 				ReflectHelper.ensureAccessibility( method );
 				return method;
 			}

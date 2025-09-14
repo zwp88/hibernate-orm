@@ -20,6 +20,7 @@ import static org.hibernate.internal.util.ReflectHelper.getDefaultConstructor;
  * Support for instantiating embeddables as POJO representation
  */
 public class EmbeddableInstantiatorPojoStandard extends AbstractPojoInstantiator implements StandardEmbeddableInstantiator {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( EmbeddableInstantiatorPojoStandard.class );
 
 	private final Supplier<EmbeddableMappingType> embeddableMappingAccess;

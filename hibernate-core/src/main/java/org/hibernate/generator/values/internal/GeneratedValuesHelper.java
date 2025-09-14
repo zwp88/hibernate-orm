@@ -35,7 +35,6 @@ import org.hibernate.spi.NavigablePath;
 import org.hibernate.sql.ast.tree.from.NamedTableReference;
 import org.hibernate.sql.ast.tree.from.TableGroup;
 import org.hibernate.sql.exec.internal.BaseExecutionContext;
-import org.hibernate.sql.model.TableMapping;
 import org.hibernate.sql.results.internal.ResultsHelper;
 import org.hibernate.sql.results.internal.RowProcessingStateStandardImpl;
 import org.hibernate.sql.results.internal.RowTransformerArrayImpl;
@@ -61,6 +60,7 @@ import static org.hibernate.sql.results.jdbc.spi.JdbcValuesSourceProcessingOptio
  */
 @Internal
 public class GeneratedValuesHelper {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( IdentifierGeneratorHelper.class );
 
 	/**
@@ -101,7 +101,7 @@ public class GeneratedValuesHelper {
 
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug( "Extracted generated values for entity "
-							+ infoString( persister ) + ": " + ArrayHelper.toString( results ) );
+						+ infoString( persister ) + ": " + ArrayHelper.toString( results ) );
 		}
 
 		for ( int i = 0; i < results.length; i++ ) {
@@ -188,7 +188,7 @@ public class GeneratedValuesHelper {
 			EntityPersister persister,
 			boolean supportsArbitraryValues,
 			List<? extends ModelPart> generatedProperties) {
-		final NavigablePath parentNavigablePath = new NavigablePath( persister.getEntityName() );
+		final var parentNavigablePath = new NavigablePath( persister.getEntityName() );
 		// This is just a mock table group needed to correctly resolve expressions
 		final TableGroup tableGroup = new TableGroupImpl(
 				parentNavigablePath,
@@ -299,7 +299,7 @@ public class GeneratedValuesHelper {
 		}
 		else if ( timing == EventType.INSERT
 					&& persister.getNaturalIdentifierProperties() != null
-					&& !persister.getEntityMetamodel().isNaturalIdentifierInsertGenerated() ) {
+					&& !persister.isNaturalIdentifierInsertGenerated() ) {
 			return new UniqueKeySelectingDelegate( persister, getNaturalIdPropertyNames( persister ), timing );
 		}
 		return null;
@@ -313,7 +313,7 @@ public class GeneratedValuesHelper {
 
 	public static boolean noCustomSql(EntityPersister persister, EventType timing) {
 		final var identifierTable = persister.getIdentifierTableMapping();
-		final TableMapping.MutationDetails mutationDetails =
+		final var mutationDetails =
 				timing == EventType.INSERT
 						? identifierTable.getInsertDetails()
 						: identifierTable.getUpdateDetails();

@@ -26,6 +26,7 @@ import static org.hibernate.internal.util.StringHelper.nullIfEmpty;
  * @author Gavin King
  */
 public final class RootClass extends PersistentClass implements TableOwner, SoftDeletable {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( RootClass.class );
 
 	private Property identifierProperty;

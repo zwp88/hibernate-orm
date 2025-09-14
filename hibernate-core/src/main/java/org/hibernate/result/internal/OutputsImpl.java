@@ -14,8 +14,6 @@ import java.util.function.Supplier;
 
 import org.hibernate.JDBCException;
 import org.hibernate.engine.jdbc.spi.SqlStatementLogger;
-import org.hibernate.event.monitor.spi.EventMonitor;
-import org.hibernate.event.monitor.spi.DiagnosticEvent;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.procedure.internal.ProcedureCallImpl;
 import org.hibernate.result.Output;
@@ -41,7 +39,7 @@ import static org.hibernate.sql.results.jdbc.spi.JdbcValuesSourceProcessingOptio
  * @author Steve Ebersole
  */
 public class OutputsImpl implements Outputs {
-	private static final Logger log = CoreLogging.logger( OutputsImpl.class );
+	private static final Logger LOG = CoreLogging.logger( OutputsImpl.class );
 
 	private final ResultContext context;
 	private final PreparedStatement jdbcStatement;
@@ -67,8 +65,8 @@ public class OutputsImpl implements Outputs {
 			executeStartNanos = System.nanoTime();
 		}
 		final var session = context.getSession();
-		final EventMonitor eventMonitor = session.getEventMonitor();
-		final DiagnosticEvent jdbcPreparedStatementExecutionEvent =
+		final var eventMonitor = session.getEventMonitor();
+		final var jdbcPreparedStatementExecutionEvent =
 				eventMonitor.beginJdbcPreparedStatementExecutionEvent();
 		try {
 			final boolean isResultSet = jdbcStatement.execute();
@@ -253,8 +251,8 @@ public class OutputsImpl implements Outputs {
 		}
 
 		protected Output buildOutput() {
-			if ( log.isTraceEnabled() ) {
-				log.tracef( "Building Return [isResultSet=%s, updateCount=%s, extendedReturn=%s]",
+			if ( LOG.isTraceEnabled() ) {
+				LOG.tracef( "Building Return [isResultSet=%s, updateCount=%s, extendedReturn=%s]",
 						isResultSet(), getUpdateCount(), hasExtendedReturns() );
 			}
 

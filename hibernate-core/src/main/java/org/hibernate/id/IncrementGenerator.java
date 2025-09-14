@@ -47,6 +47,7 @@ import static org.hibernate.internal.util.config.ConfigurationHelper.getString;
  * @implNote This also implements the {@code increment} generation type in {@code hbm.xml} mappings.
  */
 public class IncrementGenerator implements IdentifierGenerator {
+
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( IncrementGenerator.class );
 
 	/**

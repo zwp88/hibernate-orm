@@ -8,7 +8,6 @@ import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.FunctionContributor;
 import org.hibernate.boot.registry.classloading.spi.ClassLoaderService;
 import org.hibernate.boot.spi.MetadataImplementor;
-import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.query.spi.NativeQueryInterpreter;
@@ -20,7 +19,6 @@ import org.hibernate.metamodel.model.domain.JpaMetamodel;
 import org.hibernate.type.BindingContext;
 import org.hibernate.query.hql.HqlTranslator;
 import org.hibernate.query.hql.internal.StandardHqlTranslator;
-import org.hibernate.query.hql.spi.SqmCreationOptions;
 import org.hibernate.query.named.NamedObjectRepository;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.spi.QueryEngineOptions;
@@ -38,11 +36,12 @@ import org.hibernate.type.spi.TypeConfiguration;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import static java.util.Comparator.comparingInt;
+import static org.hibernate.cfg.QuerySettings.QUERY_PLAN_CACHE_ENABLED;
+import static org.hibernate.cfg.QuerySettings.QUERY_PLAN_CACHE_MAX_SIZE;
 
 /**
  * Aggregation and encapsulation of the components Hibernate uses
@@ -73,20 +72,20 @@ public class QueryEngineImpl implements QueryEngine {
 			ServiceRegistryImplementor serviceRegistry,
 			Map<String,Object> properties,
 			String name) {
-		this.dialect = serviceRegistry.requireService( JdbcServices.class ).getDialect();
-		this.bindingContext = context;
-		this.typeConfiguration = metadata.getTypeConfiguration();
-		this.sqmFunctionRegistry = createFunctionRegistry( serviceRegistry, metadata, options, dialect );
-		this.sqmTranslatorFactory = resolveSqmTranslatorFactory( options, dialect );
-		this.namedObjectRepository = metadata.buildNamedQueryRepository();
-		this.interpretationCache = buildInterpretationCache( serviceRegistry, properties );
-		this.nativeQueryInterpreter = serviceRegistry.getService( NativeQueryInterpreter.class );
-		this.classLoaderService = serviceRegistry.getService( ClassLoaderService.class );
+		dialect = serviceRegistry.requireService( JdbcServices.class ).getDialect();
+		bindingContext = context;
+		typeConfiguration = metadata.getTypeConfiguration();
+		sqmFunctionRegistry = createFunctionRegistry( serviceRegistry, metadata, options, dialect );
+		sqmTranslatorFactory = resolveSqmTranslatorFactory( options, dialect );
+		namedObjectRepository = metadata.buildNamedQueryRepository();
+		interpretationCache = buildInterpretationCache( serviceRegistry, properties );
+		nativeQueryInterpreter = serviceRegistry.getService( NativeQueryInterpreter.class );
+		classLoaderService = serviceRegistry.getService( ClassLoaderService.class );
 		// here we have something nasty: we need to pass a reference to the current object to
 		// create the NodeBuilder, but then we need the NodeBuilder to create the HqlTranslator
 		// and that's only because we're using the NodeBuilder as the SqmCreationContext
-		this.nodeBuilder = createCriteriaBuilder( context, this, options, options.getUuid(), name );
-		this.hqlTranslator = resolveHqlTranslator( options, dialect, nodeBuilder );
+		nodeBuilder = createCriteriaBuilder( context, this, options, options.getUuid(), name );
+		hqlTranslator = resolveHqlTranslator( options, dialect, nodeBuilder );
 	}
 
 	private static SqmCriteriaNodeBuilder createCriteriaBuilder(
@@ -99,7 +98,7 @@ public class QueryEngineImpl implements QueryEngine {
 			QueryEngineOptions options,
 			Dialect dialect,
 			SqmCreationContext sqmCreationContext) {
-		final SqmCreationOptions sqmCreationOptions = new SqmCreationOptionsStandard( options );
+		final var sqmCreationOptions = new SqmCreationOptionsStandard( options );
 		if ( options.getCustomHqlTranslator() != null ) {
 			return options.getCustomHqlTranslator();
 		}
@@ -130,22 +129,21 @@ public class QueryEngineImpl implements QueryEngine {
 			MetadataImplementor metadata,
 			QueryEngineOptions queryEngineOptions,
 			Dialect dialect) {
-		final SqmFunctionRegistry sqmFunctionRegistry = metadata.getFunctionRegistry();
+		final var sqmFunctionRegistry = metadata.getFunctionRegistry();
 
 		queryEngineOptions.getCustomSqlFunctionMap().forEach( sqmFunctionRegistry::register );
 
-		final SqmFunctionRegistry customSqmFunctionRegistry = queryEngineOptions.getCustomSqmFunctionRegistry();
+		final var customSqmFunctionRegistry = queryEngineOptions.getCustomSqmFunctionRegistry();
 		if ( customSqmFunctionRegistry != null ) {
 			customSqmFunctionRegistry.overlay( sqmFunctionRegistry );
 		}
 
 		//TODO: probably better to turn this back into an anonymous class
-		final FunctionContributions functionContributions =
+		final var functionContributions =
 				new FunctionContributionsImpl( serviceRegistry, metadata.getTypeConfiguration(), sqmFunctionRegistry );
-		for ( FunctionContributor contributor : sortedFunctionContributors( serviceRegistry ) ) {
+		for ( var contributor : sortedFunctionContributors( serviceRegistry ) ) {
 			contributor.contributeFunctions( functionContributions );
 		}
-
 		dialect.initializeFunctionRegistry( functionContributions );
 
 		if ( LOG_HQL_FUNCTIONS.isDebugEnabled() ) {
@@ -161,7 +159,7 @@ public class QueryEngineImpl implements QueryEngine {
 	}
 
 	private static List<FunctionContributor> sortedFunctionContributors(ServiceRegistry serviceRegistry) {
-		final Collection<FunctionContributor> functionContributors =
+		final var functionContributors =
 				serviceRegistry.requireService(ClassLoaderService.class)
 						.loadJavaServices(FunctionContributor.class);
 		final List<FunctionContributor> contributors = new ArrayList<>( functionContributors );
@@ -175,36 +173,37 @@ public class QueryEngineImpl implements QueryEngine {
 	public static QueryInterpretationCache buildInterpretationCache(
 			ServiceRegistry serviceRegistry, Map<String, Object> properties) {
 		final boolean useCache = ConfigurationHelper.getBoolean(
-				AvailableSettings.QUERY_PLAN_CACHE_ENABLED,
+				QUERY_PLAN_CACHE_ENABLED,
 				properties,
 				// enabled by default
 				true
 		);
 
 		final Integer explicitMaxPlanSize = ConfigurationHelper.getInteger(
-				AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE,
+				QUERY_PLAN_CACHE_MAX_SIZE,
 				properties
 		);
 
 		//Let's avoid some confusion and check settings consistency:
-		final int appliedMaxPlanSize = explicitMaxPlanSize == null
-				? QueryEngine.DEFAULT_QUERY_PLAN_MAX_COUNT
-				: explicitMaxPlanSize;
+		final int appliedMaxPlanSize =
+				explicitMaxPlanSize == null
+						? QueryEngine.DEFAULT_QUERY_PLAN_MAX_COUNT
+						: explicitMaxPlanSize;
 		if ( !useCache && explicitMaxPlanSize != null && appliedMaxPlanSize > 0 ) {
-			throw new ConfigurationException( "Inconsistent configuration: '" + AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE + "' can only be set to a greater than zero value when '" + AvailableSettings.QUERY_PLAN_CACHE_ENABLED + "' is enabled" );
+			throw new ConfigurationException( "Inconsistent configuration: '" + QUERY_PLAN_CACHE_MAX_SIZE
+												+ "' can only be set to a greater than zero value when '"
+												+ QUERY_PLAN_CACHE_ENABLED + "' is enabled" );
 		}
 
 		if ( appliedMaxPlanSize < 0 ) {
-			throw new ConfigurationException( "Inconsistent configuration: '" + AvailableSettings.QUERY_PLAN_CACHE_MAX_SIZE + "' can't be set to a negative value. To disable the query plan cache set '" + AvailableSettings.QUERY_PLAN_CACHE_ENABLED + "' to 'false'" );
+			throw new ConfigurationException( "Inconsistent configuration: '" + QUERY_PLAN_CACHE_MAX_SIZE
+												+ "' can't be set to a negative value. To disable the query plan cache set '"
+												+ QUERY_PLAN_CACHE_ENABLED + "' to 'false'" );
 		}
 
-		if ( useCache ) {
-			return new QueryInterpretationCacheStandardImpl( appliedMaxPlanSize, serviceRegistry );
-		}
-		else {
-			// disabled
-			return new QueryInterpretationCacheDisabledImpl( serviceRegistry );
-		}
+		return useCache
+				? new QueryInterpretationCacheStandardImpl( appliedMaxPlanSize, serviceRegistry )
+				: new QueryInterpretationCacheDisabledImpl( serviceRegistry ); // disabled
 	}
 
 	@Override
